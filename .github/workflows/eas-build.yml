@@ -30,6 +30,8 @@ jobs:
       - name: Build iOS App
         # --local tells EAS to build on GitHub's Mac, not Expo's cloud
         working-directory: apps/mobile
+        env:
+          EXPO_NO_CAPABILITY_VALIDATION: 1
         run: eas build --platform ios --local --non-interactive --output=app.ipa
 
       - name: Upload iOS Artifact
