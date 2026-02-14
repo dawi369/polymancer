@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "opentrade",
+    "slug": "opentrade",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/ios-master.png",
+    "scheme": "opentrade",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "icon": {
+        "light": "./assets/ios-master.png",
+        "dark": "./assets/android-foreground.png",
+        "tinted": "./assets/android-foreground.png"
+      },
+      "bundleIdentifier": "app.opencode.get"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-foreground.png",
+        "backgroundColor": "#000000"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.dawi369.opentrade"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/ios-master.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/android-foreground.png",
+          "imageWidth": 250
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0b710a96-463a-4ade-918e-b5d5d53e7464"
+      }
+    },
+    "owner": "dawi369"
+  }
+}

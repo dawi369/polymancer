@@ -1,0 +1,65 @@
+name: EAS Local Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build iOS App
+        # --local tells EAS to build on GitHub's Mac, not Expo's cloud
+        working-directory: apps/mobile
+        run: eas build --platform ios --local --non-interactive --output=app.ipa
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: apps/mobile/app.ipa
+
+  # build-android:
+  #   name: Build Android App
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Setup Bun
+  #       uses: oven-sh/setup-bun@v2
+  #       with:
+  #         bun-version: latest
+  #     - name: Setup Expo and EAS
+  #       uses: expo/expo-github-action@v8
+  #       with:
+  #         eas-version: latest
+  #         token: ${{ secrets.EXPO_TOKEN }}
+  #     - name: Install dependencies
+  #       run: bun install
+  #     - name: Build Android App
+  #       working-directory: apps/mobile
+  #       run: eas build --platform android --local --non-interactive --output=app.apk
+  #     - name: Upload Android Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: android-build
+  #         path: apps/mobile/app.apk

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler"
+  },
+  "include": [],
+  "files": [],
+  "references": [
+    { "path": "./apps/api" },
+    { "path": "./apps/mobile" },
+    { "path": "./packages/database" }
+  ]
+}

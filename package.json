@@ -1,0 +1,8 @@
+{
+  "name": "polymancer-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
