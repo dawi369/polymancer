@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "opentrade",
-    "slug": "opentrade",
+    "slug": "polymancer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/ios-master.png",
@@ -46,7 +46,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0b710a96-463a-4ade-918e-b5d5d53e7464"
+        "projectId": "5a55fc92-39c1-4761-bbf3-1205552fbe9f"
       }
     },
     "owner": "dawi369"
