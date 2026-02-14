@@ -6,7 +6,7 @@ console.log("Database linked:", version);
 export default function Index() {
   return (
     <View style={styles.container}>
-      <Text>Edit src/app/index.tsx to edit this screen dev branch.</Text>
+      <Text>POLYMANCER</Text>
     </View>
   );
 }
