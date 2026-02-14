@@ -14,7 +14,10 @@
         "dark": "./assets/android-foreground.png",
         "tinted": "./assets/android-foreground.png"
       },
-      "bundleIdentifier": "ai.polymancer"
+      "bundleIdentifier": "ai.polymancer",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
