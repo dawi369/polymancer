@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "opentrade",
+    "name": "polymancer",
     "slug": "polymancer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/ios-master.png",
-    "scheme": "opentrade",
+    "scheme": "polymancer",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -14,7 +14,7 @@
         "dark": "./assets/android-foreground.png",
         "tinted": "./assets/android-foreground.png"
       },
-      "bundleIdentifier": "app.opencode.get"
+      "bundleIdentifier": "ai.polymancer"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.dawi369.opentrade"
+      "package": "ai.polymancer"
     },
     "web": {
       "output": "static",
