@@ -2,6 +2,7 @@
 
 **Purpose**: High-frequency, ephemeral data storage. Bypasses Polymarket API rate limits and protects Supabase from read/write exhaustion.
 **Paradigm**: Key-Value in-memory store. Strict Time-To-Live (TTL) enforcement.
+**Critical Dependency**: Redis must be healthy for any execution. If Redis unreachable, execution loop skips cycle, logs error, and retries next scheduled window. Fail-safe by design: no execution without rate limit enforcement.
 
 ## Namespace Design
 
@@ -45,7 +46,19 @@ Used by Elysia to ensure a buggy bot doesn't spam OpenRouter or Polymarket and d
 
 ### 5. Polling / Execution Rate Limit (Tier Enforcement)
 
-- **Key**: `ratelimit:user:{user_id}:executions`
+- **Key**: `ratelimit:bot:{bot_id}:executions`
 - **Data Type**: Integer (Counter)
+- **Pattern**: Atomic INCR + EXPIRE via Lua script or Redis pipeline to prevent race conditions
 - **TTL**: `300 seconds` (covers 5-min Pro polling window)
 - **Usage**: Increment on every Inngest bot wake-up. Reject if exceeds tier allowance (e.g., Pro: 12/hour, Basic: 2/hour).
+
+### Rate Limiting Strategy
+Redis serves as application-layer guardrail (not primary).
+- **Primary**: Inngest scheduling enforces tier cadence (5/30 min)
+- **Secondary**: Redis prevents edge cases (clock skew, retries, race conditions)
+- **Pattern**: Check Redis before execution; if over limit, log and skip
+
+### Memory Safety
+- **Eviction Policy**: Redis `allkeys-lru` automatically removes least-recently-used keys when memory full
+- **Monitoring**: Weekly check `INFO memory` via Railway dashboard
+- **Alert Threshold**: If memory usage >80%, investigate market data accumulation

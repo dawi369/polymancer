@@ -103,8 +103,26 @@ This pattern separates domain logic (trading strategies) from execution, allowin
 ├── Signer Service: Isolated, in-memory only key loading for EIP-712 signing (no persistent raw keys)
 ├── Anomaly Detection: Rate limiting, unusual trade monitoring, admin alerts
 ├── **Hosting**: Railway
-├── **Caching Layer**: Railway Managed Redis (market data firehose)
+├── **Caching Layer**: Railway Managed Redis (market data firehose) — Critical dependency: execution halts if Redis unreachable (fail-safe)
 └── Billing: Polar.sh (Merchant of Record)
+
+**Security & Encryption Specification**
+- At Rest: Private keys encrypted with AES-256-GCM via Supabase Vault; database fields encrypted via pgcrypto
+- In Transit: TLS 1.3 for all API communication
+- In Memory: Keys loaded only during signing, cleared from memory immediately after
+- Key Rotation: Manual via key export → create new proxy wallet → import new keys (no automatic rotation)
+
+**Database Schema Hardening**
+- Indexes: `trade_logs(bot_id, created_at DESC)`, `positions(user_id, market_id)`, `bots(user_id, status)`
+- Soft Deletes: `deleted_at` timestamp on users/bots for audit compliance
+- Data Retention: Auto-archive trade_logs >90 days to cold storage (via Supabase pg_cron)
+- Constraints: Check constraints ensure loss limits >0, position sizes within bounds
+
+**Observability (Solo Dev Stack)**
+- Logging: Structured JSON logs → Railway native logging
+- Alerts: Railway native alerting on error rate >5% or execution failures
+- Metrics: Track per-user LLM costs, trade volume, bot uptime in Supabase admin table
+- Health Check: Simple `/admin/health` endpoint showing critical system status
 
 ## Polymarket Integration
 
@@ -117,6 +135,8 @@ Official `@polymarket/clob-client` SDK used server-side.
 - Thin liquidity → AI prompted for conservative sizing, retries, and circuit breakers
 - Full user-specific position/P&L tracking via WebSocket subscription
 - Post-resolution: Auto-detect resolved markets → notify/prompt for claims (manual or optional auto)
+- **Edge Case Handling**: FOK failures retry once with 50% size then HOLD; WebSocket drops trigger 10s REST polling; circuit breakers pause bot after >3 consecutive failures or P&L drops >50% of daily limit
+- **Slippage Formula**: Paper trading calculates `slippage = (market_order_size / depth_at_price) * spread`
 
 ## AI Reasoning Engine
 
@@ -137,6 +157,12 @@ Lightweight custom loop (Nanobot-style, enhanced with OpenClaw patterns):
 6. **Gateway**: Strictly validate against all risk rules (reject + log if violated)
 7. **Execution**: Load encrypted key → sign → submit FOK order
 8. **Record & Notify**: Log in Supabase (update memory) → real-time WebSocket push to app dashboard
+
+**Job Reliability**
+- Retries: Exponential backoff (1s, 2s, 4s, 8s), max 4 attempts per execution
+- Dead Letter: Failed jobs logged to `bot_failures` table with full error context
+- Idempotency: Each execution tagged with `execution_id` (UUID) to prevent duplicate trades
+- Timeout: 60s max per bot execution
 
 ## Monetization & Cost Control
 
