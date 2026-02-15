@@ -15,6 +15,7 @@
         "tinted": "./assets/android-foreground.png"
       },
       "bundleIdentifier": "ai.polymancer",
+      // might be able to get rid of this later
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

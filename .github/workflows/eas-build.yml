@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS App
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,6 +36,7 @@ jobs:
       - name: Build iOS App
         # --local tells EAS to build on GitHub's Mac, not Expo's cloud
         working-directory: apps/mobile
+        # might be able to get rid of this later
         env:
           EXPO_NO_CAPABILITY_VALIDATION: 1
         run: eas build --platform ios --profile development --local --non-interactive --output=app.ipa
