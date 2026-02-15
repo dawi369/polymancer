@@ -4,6 +4,69 @@
 **Goal**: Mobile app for non-technical users to create, configure, and deploy secure, rule-constrained AI trading bots on Polymarket with reliable 24/7 automation.
 **URL**: polymancer.ai
 
+## ⚠️ Out of Scope (Intentionally Deferred)
+
+The following sections are **not addressed** in this design spec and are acknowledged as critical gaps:
+
+- **Legal & Compliance**: KYC/AML, money transmitter regulations, securities law, user agreements, privacy policy, GDPR/CCPA compliance
+- **Disaster Recovery**: Backup/restore procedures, RTO/RPO targets, data retention policies, incident response plans
+- **Insurance & Liability**: Coverage terms, risk disclosure requirements, limitation of liability
+
+These must be resolved before any production launch involving real user funds.
+
+## Project Phases & Current Status
+
+### Phase 1: Paper Trading MVP (CURRENT)
+**Status**: In development  
+**Scope**: Simulation-only trading, no real funds
+
+- Natural language bot creation with templates
+- 24/7 paper trading with real market data
+- Full dashboard, logs, and safety rules
+- User onboarding without KYC/compliance
+- **Legal requirement**: Minimal - standard app store TOS
+- **Risk**: Technical only - no custody of user funds
+- **Timeline**: 2-3 months
+
+### Phase 2: Closed Beta (PENDING)
+**Trigger**: Paper trading proves product-market fit  
+**Scope**: Real funds, limited users, proper entity
+
+- Form legal entity (likely offshore or US LLC)
+- Closed beta with < $10k deposits per user
+- Full compliance framework drafted
+- Insurance research initiated
+- **Legal requirement**: Entity formation, basic user agreements
+- **Risk**: Limited custody, personal liability mitigated by entity
+- **Timeline**: 3-4 months after Phase 1
+
+### Phase 3: Compliance & Legal Framework (PENDING)
+**Trigger**: Closed beta shows viability  
+**Scope**: Regulatory compliance, institutional readiness
+
+- Legal review and compliance implementation
+- KYC/AML integration (if required by jurisdiction)
+- Disaster recovery and security audits
+- Insurance coverage secured
+- **Legal requirement**: Full regulatory compliance
+- **Risk**: Fully mitigated through proper structure
+- **Timeline**: 3-6 months, $30-100k legal fees
+
+### Phase 4: Public Launch (PENDING)
+**Trigger**: All compliance requirements met  
+**Scope**: Full public availability
+
+- Open registration
+- Higher deposit limits
+- Marketing and growth
+- **Legal requirement**: Ongoing compliance monitoring
+- **Risk**: Business/market risk only
+- **Timeline**: After Phase 3 completion
+
+---
+
+**Current Phase**: Phase 1 - Building paper trading MVP with zero custody of user funds
+
 ## Vision
 
 A mobile-first platform that lets anyone launch a personalized AI trading bot for Polymarket in minutes:
