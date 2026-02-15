@@ -131,6 +131,7 @@ This pattern separates domain logic (trading strategies) from execution, allowin
   - AI Engine Selector (efficient vs. frontier models)
   - Hard-coded rules: max loss (daily/total), max position size, allowed markets/categories, max trades per day
   - **Mandatory Simulation Mode**: 24-hour+ paper-trading with real order-book slippage and position tracking
+    - **Paper trading mimics real Polymarket behavior exactly**: Same order book depth, FOK execution rules, slippage calculations, and fee structure as live trading
 - **Dashboard**:
   - Real-time P&L, positions, AI "Trade Log" with full reasoning explanations
   - Pause/resume, one-tap emergency stop (freezes bot + optional key revocation guide)
@@ -198,8 +199,16 @@ Official `@polymarket/clob-client` SDK used server-side.
 - Thin liquidity → AI prompted for conservative sizing, retries, and circuit breakers
 - Full user-specific position/P&L tracking via WebSocket subscription
 - Post-resolution: Auto-detect resolved markets → notify/prompt for claims (manual or optional auto)
-- **Edge Case Handling**: FOK failures retry once with 50% size then HOLD; WebSocket drops trigger 10s REST polling; circuit breakers pause bot after >3 consecutive failures or P&L drops >50% of daily limit
-- **Slippage Formula**: Paper trading calculates `slippage = (market_order_size / depth_at_price) * spread`
+- **Edge Case Handling**: FOK failures cancel order and log to bot_failures; WebSocket drops trigger 10s REST polling; circuit breakers pause bot after >3 consecutive failures or P&L drops >50% of daily limit
+- **Slippage Calculation**: Uses real-time order book depth from Polymarket L2 data. If calculated slippage exceeds 2% threshold, order is rejected.
+
+### Order Execution (FOK - Fill or Kill)
+
+All orders execute as Fill-or-Kill:
+- Order must fill completely at acceptable slippage or be canceled entirely
+- No partial fills
+- On FOK failure: Order canceled, failure logged to bot_failures, bot continues to next cycle
+- Paper trading parity: Identical FOK simulation using real order book depth
 
 ## AI Reasoning Engine
 
@@ -209,6 +218,19 @@ Lightweight custom loop (Nanobot-style, enhanced with OpenClaw patterns):
 - Strict token limits, error retry, and fallback to HOLD on ambiguity
 - Prompt engineering focused on rule adherence and conservative trading
 - Orchestration: LLM selects/adapts declarative recipes or composes from atomic tools
+
+### OpenRouter Failure Handling
+
+When OpenRouter AI services are unavailable:
+
+1. **Immediate response**: Bot status changes to `paused:ai_unavailable`
+2. **User notification**: Push notification + in-app alert: "Bot paused - AI service temporarily unavailable"
+3. **Automatic retry**: System retries AI connection every 10 minutes
+4. **Resume conditions**:
+   - Successful AI response received
+   - User manually resumes bot (resets to `paused` or `live`)
+5. **Logging**: All failures logged to `bot_failures` with `error_type = 'api_error'`
+6. **No trades executed**: During AI unavailability, bot holds all positions - no autonomous fallback trading
 
 ## The Execution Loop (Server-Driven, Always-On)
 

@@ -39,12 +39,21 @@ The configuration and safety rules for the AI agents.
 
 - `id` (uuid, primary key)
 - `user_id` (uuid, foreign key -> `users.id`)
-- `status` (enum) - `['paper', 'live', 'paused', 'error']`
+- `name` (text) - User-defined bot name (default: 'Untitled Bot')
+- `status` (enum) - `['paper', 'live', 'paused', 'paused:ai_unavailable', 'error']`
 - `strategy_prompt` (text) - The natural language instruction.
 - `model_id` (text) - e.g., `anthropic/claude-3.5-sonnet`
 - `max_daily_loss_usd` (numeric) - Hard limit constraint.
 - `max_position_size_usd` (numeric) - Hard limit constraint.
 - `allowed_categories` (text[]) - e.g., `['politics', 'crypto']`
+- `slippage_threshold_percent` (numeric) - Maximum acceptable slippage (default: 2.0)
+- `max_trades_per_day` (integer) - Trade frequency limit (default: 10)
+- `ai_failure_retry_minutes` (integer) - Retry interval when AI unavailable (default: 10)
+- `risk_budget_usd` (numeric) - Isolated risk budget for this bot (NULL = use user default)
+- `risk_budget_type` (enum) - `['individual', 'shared']` (default: 'individual')
+- `bot_group_id` (uuid) - For bot clusters that work together (future feature)
+- `priority` (integer) - Execution order within user (default: 0)
+- `max_concurrent_markets` (integer) - Limit simultaneous positions (default: 1)
 - `last_run_at` (timestamp) - Updated by Inngest after every successful evaluation loop to populate the UI dashboard.
 - `created_at` (timestamp, default `now()`)
 - `recipe_json` (jsonb) - the parsed/structured workflow (steps, tools, parameters)
@@ -101,8 +110,30 @@ Real-time materialized view of a user's holdings. Updated via WebSocket triggers
   }
 - `updated_at` (timestamp)
 
+### 8. `bot_coordination_locks` (Prevents race conditions between multiple bots)
+
+- `id` (uuid, primary key)
+- `user_id` (uuid, foreign key → users.id)
+- `market_id` (text) - Polymarket condition ID being traded
+- `locked_by_bot_id` (uuid, foreign key → bots.id)
+- `locked_at` (timestamp)
+- `expires_at` (timestamp) - Auto-release if bot crashes or hangs
+
+### 9. `user_risk_profiles` (User-level risk defaults for multi-bot support)
+
+- `id` (uuid, primary key)
+- `user_id` (uuid, foreign key → users.id, unique)
+- `default_daily_loss_usd` (numeric) - Default daily loss limit (default: 100.00)
+- `default_position_size_usd` (numeric) - Default position size limit (default: 500.00)
+- `default_slippage_threshold_percent` (numeric) - Default slippage tolerance (default: 2.0)
+- `global_risk_budget_usd` (numeric) - Total risk budget across all user bots (NULL = unlimited)
+- `created_at` (timestamp, default `now()`)
+- `updated_at` (timestamp, default `now()`)
+
 ## Row Level Security (RLS) Policies
 
 - **Users**: Can only `SELECT` and `UPDATE` their own row where `id = auth.uid()`.
 - **ApiCredentials**: UI can `INSERT`, Backend Service Role can `SELECT`. Users cannot `SELECT` their own decrypted keys back to the frontend.
-- **Bots/Logs/Positions**: Users can `SELECT`, `INSERT`, `UPDATE` where `user_id = auth.uid()`.
+- **Bots/Logs/Positions/BotContext**: Users can `SELECT`, `INSERT`, `UPDATE` where `user_id = auth.uid()` (or `bot_id` → bot → user_id).
+- **BotCoordinationLocks**: Backend Service Role only. Users cannot directly access locks.
+- **UserRiskProfiles**: Users can `SELECT` and `UPDATE` their own profile where `user_id = auth.uid()`.
