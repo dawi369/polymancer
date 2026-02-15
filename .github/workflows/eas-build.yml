@@ -27,12 +27,6 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # TODO: Remove this step once Expo SDK 55 stable is released.
-      # Expo SDK 55 preview has Swift 6 concurrency issues with Xcode 16.4.
-      # Revert to macos-latest (Xcode 16.4) after stable release.
-      - name: Select Xcode 16.2
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
-
       - name: Build iOS App
         # --local tells EAS to build on GitHub's Mac, not Expo's cloud
         working-directory: apps/mobile
