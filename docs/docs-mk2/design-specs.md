@@ -12,16 +12,16 @@
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Mobile App    │────▶│  Elysia API     │────▶│    Supabase     │
+│   Mobile App    │───▶│  Elysia API     │───▶│    Supabase     │
 │  (Expo + RN)    │◄────│   (Bun)         │◄────│  (PostgreSQL)   │
 └─────────────────┘     └────────┬────────┘     └─────────────────┘
                                  │
                     ┌────────────┼────────────┐
                     ▼            ▼            ▼
-             ┌───────────┐ ┌──────────┐ ┌──────────────┐
-             │ OpenRouter │ │ Inngest  │ │  Polymarket  │
-             │ (AI)      │ │ (Jobs)   │ │  (Gamma API) │
-             └───────────┘ └──────────┘ └──────────────┘
+            ┌────────────┐ ┌──────────┐ ┌──────────────┐
+            │ OpenRouter │ │ Inngest  │ │  Polymarket  │
+            │  (AI)      │ │ (Jobs)   │ │  (Gamma API) │
+            └────────────┘ └──────────┘ └──────────────┘
 ```
 
 **Note**: Live trading components (credential decryption, order signing, CLOB submission) shown in gray are Phase 2 only. See docs/live-trading-architecture.md.
