@@ -1,278 +1,666 @@
-# Polymancer
+# Polymancer - Paper Trading MVP Design Spec
 
 **Platform**: iOS & Android via Expo SDK 55  
-**Goal**: Mobile app for non-technical users to create, configure, and deploy secure, rule-constrained AI trading bots on Polymarket with reliable 24/7 automation.
-**URL**: polymancer.ai
-
-## ⚠️ Out of Scope (Intentionally Deferred)
-
-The following sections are **not addressed** in this design spec and are acknowledged as critical gaps:
-
-- **Legal & Compliance**: KYC/AML, money transmitter regulations, securities law, user agreements, privacy policy, GDPR/CCPA compliance
-- **Disaster Recovery**: Backup/restore procedures, RTO/RPO targets, data retention policies, incident response plans
-- **Insurance & Liability**: Coverage terms, risk disclosure requirements, limitation of liability
-
-These must be resolved before any production launch involving real user funds.
-
-## Project Phases & Current Status
-
-### Phase 1: Paper Trading MVP (CURRENT)
-**Status**: In development  
-**Scope**: Simulation-only trading, no real funds
-
-- Natural language bot creation with templates
-- 24/7 paper trading with real market data
-- Full dashboard, logs, and safety rules
-- User onboarding without KYC/compliance
-- **Legal requirement**: Minimal - standard app store TOS
-- **Risk**: Technical only - no custody of user funds
-- **Timeline**: 2-3 months
-
-### Phase 2: Closed Beta (PENDING)
-**Trigger**: Paper trading proves product-market fit  
-**Scope**: Real funds, limited users, proper entity
-
-- Form legal entity (likely offshore or US LLC)
-- Closed beta with < $10k deposits per user
-- Full compliance framework drafted
-- Insurance research initiated
-- **Legal requirement**: Entity formation, basic user agreements
-- **Risk**: Limited custody, personal liability mitigated by entity
-- **Timeline**: 3-4 months after Phase 1
-
-### Phase 3: Compliance & Legal Framework (PENDING)
-**Trigger**: Closed beta shows viability  
-**Scope**: Regulatory compliance, institutional readiness
-
-- Legal review and compliance implementation
-- KYC/AML integration (if required by jurisdiction)
-- Disaster recovery and security audits
-- Insurance coverage secured
-- **Legal requirement**: Full regulatory compliance
-- **Risk**: Fully mitigated through proper structure
-- **Timeline**: 3-6 months, $30-100k legal fees
-
-### Phase 4: Public Launch (PENDING)
-**Trigger**: All compliance requirements met  
-**Scope**: Full public availability
-
-- Open registration
-- Higher deposit limits
-- Marketing and growth
-- **Legal requirement**: Ongoing compliance monitoring
-- **Risk**: Business/market risk only
-- **Timeline**: After Phase 3 completion
+**Goal**: Mobile app for non-technical users to create, configure, and deploy AI-powered paper trading bots on Polymarket  
+**Current Phase**: Paper Trading MVP (Zero Live Trading)  
+**Target Timeline**: 2-3 months for solo developer  
+**Future Phase**: Live Trading (see docs/live-trading-architecture.md)
 
 ---
 
-**Current Phase**: Phase 1 - Building paper trading MVP with zero custody of user funds
+## Architecture
 
-## Vision
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Mobile App    │────▶│  Elysia API     │────▶│    Supabase     │
+│  (Expo + RN)    │◄────│   (Bun)         │◄────│  (PostgreSQL)   │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                    ┌────────────┼────────────┐
+                    ▼            ▼            ▼
+             ┌───────────┐ ┌──────────┐ ┌──────────────┐
+             │ OpenRouter │ │ Inngest  │ │  Polymarket  │
+             │ (AI)      │ │ (Jobs)   │ │  (Gamma API) │
+             └───────────┘ └──────────┘ └──────────────┘
+```
 
-A mobile-first platform that lets anyone launch a personalized AI trading bot for Polymarket in minutes:
+**Note**: Live trading components (credential decryption, order signing, CLOB submission) shown in gray are Phase 2 only. See docs/live-trading-architecture.md.
 
-- Natural language strategy description translated into strict logic (with beginner-friendly templates/examples)
-- Model-agnostic AI routing (Vercel AI SDK + OpenRouter)
-- Unbreakable, server-enforced risk rules
-- **Custodial execution**: Server holds encrypted private keys for reliable always-on trading (with industry-standard mitigations, transparency, and easy key export/revocation)
+### Tech Stack
 
-## Competitors & Differentiation
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Mobile | Expo SDK 55 + React Native + NativeWind + gluestack-ui | iOS/Android UI |
+| Backend | Bun + Elysia | REST API, business logic |
+| Database | Supabase (PostgreSQL) | All persistent data, auth |
+| AI | OpenRouter (via Vercel AI SDK) | Multi-model inference |
+| Scheduling | Inngest | Per-bot durable execution |
+| Hosting | Railway | Backend + Inngest worker |
+| Auth | Supabase Auth | Apple + Google OAuth |
+| Payments | RevenueCat | iOS + Google Play subscriptions |
+| Notifications | Expo Push Notifications | End-of-day summaries |
 
-The Polymarket trading bot space is active but fragmented. No direct 1:1 competitor exists for a mobile-first, no-code AI bot builder targeted at non-technical users.
+### Phase 2 Components (Not in MVP)
 
-**Main Competitors**
+- ❌ Live trading execution
+- ❌ Credential management / key storage
+- ❌ Real-time WebSocket dashboard
+- ❌ Multiple bots per user
+- ❌ AI-powered market discovery
+- ❌ Historical backtesting
 
-- **OpenClaw / IronClaw**: Leading open-source AI agent frameworks. Powerful for custom autonomous agents but require coding, VPS setup, and technical expertise. Not mobile-native; high barrier for non-devs.
-- **OctoBot Prediction Market**: Free open-source Polymarket trading robot (GitHub). Scriptable strategies but CLI/server-based; no mobile UX or natural-language interface.
-- **Copy-Trading Bots (TradeFox, Kreo, Polygun)**: Allow following top traders automatically. Popular for passive users but no custom strategy creation or AI reasoning — users copy humans/AI, not build their own.
-- **Polymtrade**: Dedicated mobile trading terminal for Polymarket with AI-powered insights and self-custodial trades. Closest mobile competitor but focused on manual/fast trading + insights, not automated bot creation/deployment.
-- **Custom/Arbitrage Bots**: Numerous GitHub repos and community bots (weather, BTC up/down, arbitrage). Highly profitable in niches but require self-hosting, coding, and ongoing maintenance.
-- **Official Polymarket App**: Excellent for manual trading; no automation or bot features.
+---
 
-**Polymancer Differentiation**
+## Authentication
 
-- Truly no-code: Natural language → enforceable AI bot in minutes.
-- Mobile-native dashboard with real-time explanations, logs, and one-tap controls.
-- Mandatory simulation + unbreakable safety rules tailored for non-tech users.
-- Managed service with reliable 24/7 execution (accepting custodial trade-off for usability).
-- Future roadmap: Optional trustless on-device mode when mobile background execution improves.
+Apple + Google OAuth only (no email/password).
 
-## Open-Source Integrations & Development Approach
+**Flow**:
+1. App launches, check for existing Supabase session in Expo SecureStore
+2. No session: show login screen with "Sign in with Apple" / "Sign in with Google"
+3. Supabase `signInWithOAuth()` handles the OAuth exchange
+4. On first login: Supabase trigger on `auth.users` inserts row into `public.users`
+5. Session token persisted to Expo SecureStore
+6. Token refresh handled automatically by Supabase SDK
+7. All Elysia API calls include `Authorization: Bearer <token>`, validated via `supabase.auth.getUser()`
 
-To accelerate development as a solo dev, selectively borrow from open-source competitors rather than full forks. Full forking (e.g., OctoBot-Prediction-Market) is not recommended due to stack mismatches (Python vs. TS/Bun), license constraints (GPL-3.0 requires open-sourcing derivatives), and underdevelopment of key features. Instead, cherry-pick proven components to enhance the custom Nanobot-style pipeline without bloat.
+---
 
-**Prioritized Borrowings**:
+## Core Features (MVP)
 
-- **PolyClaw/OpenClaw Skills (Primary Focus)**: From https://github.com/chainstacklabs/polyclaw or openclaw-skills. Adapt tool definitions/schemas for Polymarket actions (browse markets, place orders, get positions, hedge detection). Use for structured JSON outputs in the AI decision parser and prompt engineering for conservative strategies. License: MIT (flexible).
-- **Official Polymarket Agents Framework**: From https://github.com/Polymarket/agents. Borrow utilities for market data fetching, trade execution wrappers, and position reconciliation. Integrate directly into the clob-client handling.
-- **OctoBot-Prediction-Market**: From https://github.com/Drakkar-Software/OctoBot-Prediction-Market. Extract API wrappers for Polymarket connections (order signing, FOK execution) and basic arbitrage/copy-trading logic as baseline helpers. Port from Python to TS for the execution loop. Avoid full fork due to GPL and maturity issues.
-- **Other Targeted Repos**:
-  - MrFadiAi/Polymarket-bot: Risk management code and strategy explanations for the rules gateway.
-  - Earthskyorg/Polymarket-Copy-Trading-Bot: Copy-trading patterns as prompt templates.
-- **Implementation Guidelines**: Extract snippets locally, adapt to Bun/TS, attribute in code/docs. Focus on AI "brain" (prompts/tools) and execution (signing/FOK). Test in simulation mode. This cuts dev time on Polymarket specifics while keeping the lightweight, deterministic architecture.
+### 1. Bot Creation
 
-## Architecture Inspirations (Adapted from OpenClaw via Jam)
+- Natural language strategy prompt with templates
+- AI model selection (all tiers use cost-efficient models initially)
+- Hard-coded safety rules:
+  - Max daily loss USD
+  - Max position size USD
+  - Allowed market categories (from curated 50 markets)
+  - Max trades per day (default 10)
+  - Slippage threshold (default 2%)
+- User-defined starting paper balance ($100 - $100,000 USD)
+- **Note**: No credential import required for paper trading
 
-Drawing from OpenClaw's architecture (as adapted by Jam for marketing automation), enhance the system for multi-tenant, always-on AI bots. Key elements borrowed:
+### 2. Paper Trading Engine
 
-- **Small Composable Tools**: Break trading operations into atomic functions (e.g., market_query, position_check, order_place, risk_validate). Clean inputs/outputs for easy chaining.
-- **Declarative Recipes**: User strategies as data (not code)—e.g., JSON/YAML workflows from natural language prompts: 1. query_markets(topic) → opportunities; 2. evaluate_probabilities(opportunities) → signals; 3. size_position(signals, rules) → order_params; 4. execute_order(order_params).
-- **AI Orchestration**: LLM selects/adapts recipes or composes new ones from tools, ensuring rule adherence.
-- **Memory Layer**: Use Supabase (Postgres) for per-user context: trade history, past decisions, lessons (e.g., "last trade failed due to slippage"). Hydrate on each run for continuous "memory" without files.
-- **Heartbeat/Triggers**: Inngest for cron-based polling (e.g., every 5-30 min per tier), webhooks (e.g., Polymarket events), or user triggers. Creates "always awake" illusion with ephemeral compute.
-- **Sandbox Execution (If Needed)**: For future complex tasks (e.g., external API integrations), use e2b sandboxes—ephemeral, isolated environments. Not core for MVP (trading is API-based), but extensible.
+Simulates trading against 50 curated Polymarket markets.
 
-This pattern separates domain logic (trading strategies) from execution, allowing bots to adapt without full rewrites. Adapted for scale: Stateless agents load user context on trigger, persist results, scale to zero when idle.
+- Fetches real-time order book from Polymarket CLOB API
+- Simulates FOK (Fill or Kill) execution against live order book depth
+- Calculates real slippage from order book walk
+- Simulates taker fees (2% default)
+- Tracks paper balance (decreases on buys, increases on sells, includes fees)
+- Rejects trades when paper balance is insufficient
+- Tracks P&L via average cost basis method
+- All trades logged with full AI reasoning
 
-## MVP Features
+**Curated Markets**: 50 static markets organized by category (see docs/markets.md):
+- Politics (15 markets)
+- Crypto (15 markets)
+- Sports (10 markets)
+- Science/Tech (5 markets)
+- Pop Culture (5 markets)
 
-- **Bot Creation & AI Selection**:
-  - Free-text strategy prompt (with templates/examples)
-  - AI Engine Selector (efficient vs. frontier models)
-  - Hard-coded rules: max loss (daily/total), max position size, allowed markets/categories, max trades per day
-  - **Mandatory Simulation Mode**: 24-hour+ paper-trading with real order-book slippage and position tracking
-    - **Paper trading mimics real Polymarket behavior exactly**: Same order book depth, FOK execution rules, slippage calculations, and fee structure as live trading
-- **Dashboard**:
-  - Real-time P&L, positions, AI "Trade Log" with full reasoning explanations
-  - Pause/resume, one-tap emergency stop (freezes bot + optional key revocation guide)
-  - Historical trade export (for tax/reporting)
-- **Safety & Auth**:
-  - Rules enforced strictly at the API gateway layer (no overrides)
-  - Private keys encrypted at rest; in-memory signing only
-  - Full audit logging of every decision/trade
-  - One-click key export and revocation instructions
+### 3. Dashboard
 
-## Onboarding Flow (High-Friction but Secure)
+- P&L summary (realized from trade_logs)
+- Current positions with entry price
+- Trade log with AI reasoning, confidence, slippage, fees
+- Paper balance remaining
+- Pause/resume bot
+- **Note**: No emergency stop needed (paper only)
 
-- Step-by-step guided private key import from Polymarket proxy wallet
-  - Dire warnings: "Importing keys grants Polymancer trading access. High risk of total loss. Only import funds you can afford to lose."
-  - Video/text guide + Polymarket export instructions
-- One-time USDC approval transaction (signed via imported key)
-- Credential verification + mandatory 24-hour simulation before live trading
-- Post-onboarding: Prominent revocation/export buttons
+### 4. Safety & Security
 
-## Architecture (The Railway Stack — Custodial but Hardened)
+- All risk rules enforced server-side in Elysia
+- **Note**: No credential encryption needed for paper-only MVP
+- Platform safety via Inngest pause/resume
 
-**Mobile App (Expo SDK 55 + React Native)**
-├── UI Shell & Core: Expo
-├── Styling & Components: NativeWind (Tailwind CSS) + gluestack-ui
-├── Local Security: Expo SecureStore (temporary onboarding only)
-└── Communication: REST/WebSocket → Backend API (dashboard sync, no signing)
+---
 
-**Backend (Bun + TypeScript + Elysia) — Trusted Execution**
-├── API Framework: Elysia
-├── Auth, Configs & Ledger: Supabase (PostgreSQL + PGCrypto/per-user encrypted private key storage)
-├── AI Gateway: Vercel AI SDK + OpenRouter
-├── **Durable Execution Engine**: Inngest (reliable scheduling + observability)
-├── Signer Service: Isolated, in-memory only key loading for EIP-712 signing (no persistent raw keys)
-├── Anomaly Detection: Rate limiting, unusual trade monitoring, admin alerts
-├── **Hosting**: Railway
-├── **Caching Layer**: Railway Managed Redis (market data firehose) — Critical dependency: execution halts if Redis unreachable (fail-safe)
-└── Billing: Polar.sh (Merchant of Record)
+## Strategy Templates
 
-**Security & Encryption Specification**
-- At Rest: Private keys encrypted with AES-256-GCM via Supabase Vault; database fields encrypted via pgcrypto
-- In Transit: TLS 1.3 for all API communication
-- In Memory: Keys loaded only during signing, cleared from memory immediately after
-- Key Rotation: Manual via key export → create new proxy wallet → import new keys (no automatic rotation)
+| Template | Strategy Prompt | Default Rules |
+|----------|----------------|---------------|
+| **Conservative** | "Only buy YES tokens when probability is below 20% and market volume exceeds $100k in the last 24h. Hold until probability reaches 50% or higher, then sell." | max_loss: $50, max_position: $200, max_trades: 5 |
+| **Momentum** | "Buy YES tokens in trending markets where probability has increased by 10%+ in the last 24 hours. Sell if probability drops 5% from peak." | max_loss: $100, max_position: $500, max_trades: 10 |
+| **Contrarian** | "Look for markets where probability recently dropped sharply (15%+ in 24h) but fundamentals suggest recovery. Buy YES on dips, sell on recovery to prior levels." | max_loss: $100, max_position: $300, max_trades: 8 |
 
-**Database Schema Hardening**
-- Indexes: `trade_logs(bot_id, created_at DESC)`, `positions(user_id, market_id)`, `bots(user_id, status)`
-- Soft Deletes: `deleted_at` timestamp on users/bots for audit compliance
-- Data Retention: Auto-archive trade_logs >90 days to cold storage (via Supabase pg_cron)
-- Constraints: Check constraints ensure loss limits >0, position sizes within bounds
+---
 
-**Observability (Solo Dev Stack)**
-- Logging: Structured JSON logs → Railway native logging
-- Alerts: Railway native alerting on error rate >5% or execution failures
-- Metrics: Track per-user LLM costs, trade volume, bot uptime in Supabase admin table
-- Health Check: Simple `/admin/health` endpoint showing critical system status
+## Data Flow
 
-## Polymarket Integration
+### Bot Execution Loop
 
-Official `@polymarket/clob-client` SDK used server-side.
+Each bot runs as an independent Inngest function with concurrency limit of 1. Triggered on a cron schedule: Free=4h (6x/day), Pro=2h (12x/day).
 
-**Key Realities & Mitigations**
+```
+For a single bot execution cycle:
 
-- Per-order EIP-712 signing requires private key → encrypted storage + in-memory use only
-- Native FOK orders for atomic, no-partial-fill execution
-- Thin liquidity → AI prompted for conservative sizing, retries, and circuit breakers
-- Full user-specific position/P&L tracking via WebSocket subscription
-- Post-resolution: Auto-detect resolved markets → notify/prompt for claims (manual or optional auto)
-- **Edge Case Handling**: FOK failures cancel order and log to bot_failures; WebSocket drops trigger 10s REST polling; circuit breakers pause bot after >3 consecutive failures or P&L drops >50% of daily limit
-- **Slippage Calculation**: Uses real-time order book depth from Polymarket L2 data. If calculated slippage exceeds 2% threshold, order is rejected.
+1. PREFLIGHT CHECKS
+   - Load bot config from Supabase (status, rules, strategy_prompt)
+   - Check daily AI cost cap: if exceeded, skip with rejection log
+   - If bot.status != 'paper', skip (all bots are paper in MVP)
+   - If bot.consecutive_failures >= 5:
+     * set status='paused'
+     * send push notification
+     * skip
+   - **CRITICAL FIX**: Only reset consecutive_failures on EXECUTED trades, not HOLD/rejected
 
-### Order Execution (FOK - Fill or Kill)
+2. LOAD CURATED MARKETS
+   - Query market_cache for the 50 curated markets
+   - Filter by allowed_categories if set
+   - Include markets where bot has open positions
+   - Fetch order book for each from Polymarket CLOB API
+   - Cache results in market_cache (5min TTL)
 
-All orders execute as Fill-or-Kill:
-- Order must fill completely at acceptable slippage or be canceled entirely
-- No partial fills
-- On FOK failure: Order canceled, failure logged to bot_failures, bot continues to next cycle
-- Paper trading parity: Identical FOK simulation using real order book depth
+3. BUILD AI CONTEXT
+   - Load current positions from Supabase
+   - Query trade_logs: count today's trades, sum today's realized P&L
+   - Load last 10 trades for recent context
+   - Assemble context (see AI Context section)
 
-## AI Reasoning Engine
+4. AI DECISION
+   - Call OpenRouter with assembled context
+   - Parse and validate response (see AI Response Validation)
+   - On parse/validation failure:
+     * increment consecutive_failures
+     * log as 'rejected'
+     * skip to step 7
+   - On success: pass to risk validation
 
-Lightweight custom loop (Nanobot-style, enhanced with OpenClaw patterns):
+5. FOK SIMULATION
+   - Simulate FOK execution against order book
+   - If simulation returns REJECTED (insufficient liquidity):
+     * log as 'rejected'
+     * skip to step 7
+   - Calculate projected slippage, fees
 
-- Deterministic pipeline with structured JSON output parsing
-- Strict token limits, error retry, and fallback to HOLD on ambiguity
-- Prompt engineering focused on rule adherence and conservative trading
-- Orchestration: LLM selects/adapts declarative recipes or composes from atomic tools
+6. RISK VALIDATION
+   - **CRITICAL FIX**: Check paper balance using FOK results
+   - Run all 6 checks (see Risk Validation section)
+   - On any failure: log as 'rejected' with reason, skip to step 7
 
-### OpenRouter Failure Handling
+7. EXECUTE & RECORD (CRITICAL FIX: Proper Idempotency)
+   
+   Step 7a: Generate execution_id (UUIDv4)
+   Step 7b: Insert PENDING trade_log:
+     ```
+     INSERT INTO trade_logs (
+       execution_id, execution_status, bot_id, market_id, ...
+     ) VALUES (
+       'uuid', 'pending', ...
+     )
+     ```
+   
+   Step 7c: Execute paper trade simulation (already done in step 5)
+   
+   Step 7d: Update trade_log to EXECUTED:
+     ```
+     UPDATE trade_logs SET
+       execution_status = 'executed',
+       size = [shares],
+       execution_price = [price],
+       fee_usd = [fee],
+       ...
+     WHERE execution_id = 'uuid'
+     ```
+   
+   Step 7e: Triggers automatically update:
+     - positions table (via trigger_update_positions)
+     - paper_balance_usd (via trigger_update_paper_balance)
+   
+   Step 7f: If execution fails after pending insert:
+     UPDATE trade_logs SET execution_status = 'failed', error_message = '...'
 
-When OpenRouter AI services are unavailable:
+8. POST-EXECUTION
+   - Update bot.last_run_at, bot.last_run_status
+   - **CRITICAL FIX**: Reset consecutive_failures = 0 ONLY if trade was executed
+   - Increment daily_ai_cost_usd
+   - No push notification (end-of-day summary only)
+```
 
-1. **Immediate response**: Bot status changes to `paused:ai_unavailable`
-2. **User notification**: Push notification + in-app alert: "Bot paused - AI service temporarily unavailable"
-3. **Automatic retry**: System retries AI connection every 10 minutes
-4. **Resume conditions**:
-   - Successful AI response received
-   - User manually resumes bot (resets to `paused` or `live`)
-5. **Logging**: All failures logged to `bot_failures` with `error_type = 'api_error'`
-6. **No trades executed**: During AI unavailability, bot holds all positions - no autonomous fallback trading
+### AI Context (Sent to OpenRouter)
 
-## The Execution Loop (Server-Driven, Always-On)
+```typescript
+{
+  strategy_prompt: string,         // User's natural language strategy
+  risk_rules: {
+    max_daily_loss_usd: number,
+    max_position_size_usd: number,
+    allowed_categories: string[],
+    max_trades_per_day: number,
+    slippage_threshold_percent: number,
+    paper_balance_remaining_usd: number
+  },
 
-1. **Data Firehose**: Background service subscribes to Polymarket WebSocket → Redis (5s TTL + REST fallback)
-2. **Trigger**: Inngest schedules per tier (5–30 min), handles cron/webhooks/user events
-3. **Context Build**: Pull latest prices, user positions, rules; hydrate memory from Supabase (history, past runs)
-4. **The Brain**: Prompt selected model via OpenRouter to orchestrate recipe/tools
-5. **Decision Parser**: Extract structured BUY/SELL/HOLD + parameters
-6. **Gateway**: Strictly validate against all risk rules (reject + log if violated)
-7. **Execution**: Load encrypted key → sign → submit FOK order
-8. **Record & Notify**: Log in Supabase (update memory) → real-time WebSocket push to app dashboard
+  current_positions: Position[],   // From positions table
+  todays_pnl_usd: number,         // Sum of realized_pnl_usd from today's trade_logs
+  trades_today: number,            // Count from trade_logs
+  recent_trades: Trade[],          // Last 10 trades
 
-**Job Reliability**
-- Retries: Exponential backoff (1s, 2s, 4s, 8s), max 4 attempts per execution
-- Dead Letter: Failed jobs logged to `bot_failures` table with full error context
-- Idempotency: Each execution tagged with `execution_id` (UUID) to prevent duplicate trades
-- Timeout: 60s max per bot execution
+  markets: {                       // From curated 50 markets
+    market_id: string,
+    question: string,
+    outcome_prices: { yes: number, no: number },
+    volume_24h: number,
+    order_book: {
+      asks: { price: number, size: number }[],
+      bids: { price: number, size: number }[]
+    }
+  }[],
 
-## Monetization & Cost Control
+  current_time: string,            // ISO 8601
+  type: 'paper'                    // Always paper in MVP
+}
+```
 
-Flat-fee subscriptions with strict guardrails:
+### AI Response Format
 
-- **Freemium / Paper Trading**: Unlimited simulation, local/light models
-- **Basic Tier ($12/mo)**: Efficient models, 30-min polling, moderate limits
-- **Pro Tier ($29/mo)**: Frontier models (Claude 3.5/GPT-4o), 5-min polling, higher limits
-- Strict `max_tokens`, tier-based rate limits, and cost monitoring to prevent runaway bills
+```typescript
+{
+  action: 'BUY' | 'SELL' | 'HOLD',
+  market_id: string,              // Must match a market_id from context
+  token: 'YES' | 'NO',
+  size_usd: number,
+  reasoning: string,              // → stored as trade_logs.ai_reasoning
+  confidence: number              // → stored as trade_logs.ai_confidence
+}
+```
 
-## Risks & Disclaimers (Non-Negotiable — Shown Everywhere)
+**Case mapping**: AI returns uppercase (`BUY`, `YES`). Application lowercases before DB insert.
 
-- **Custodial Risk**: Polymancer holds encrypted private keys for automation. Breach or misuse could result in total loss of funds.
-- Key import is dangerous and irreversible without export.
-- No guarantees of profitability — bots can and will lose money.
-- Prediction markets involve high risk; possible total loss.
-- Geoblocking for restricted regions (US, etc.).
-- Not financial advice; users trade at own risk.
-- Future: Planned trustless on-device mode (limited frequency) for maximum security.
+### AI Response Validation
 
-## Roadmap (Post-MVP)
+```
+1. PARSE: Attempt JSON.parse()
+   - Failure: log rejection_reason='malformed_ai_response', increment consecutive_failures
 
-- Trustless lite mode (on-device signing, foreground-required)
+2. SCHEMA CHECK:
+   - action must be 'BUY', 'SELL', or 'HOLD'
+   - If action != 'HOLD':
+     * market_id must match one from context
+     * token must be 'YES' or 'NO'
+     * size_usd must be positive number
+   - confidence must be 0-1
+
+3. HALLUCINATION CHECK:
+   - Reject if market_id not in provided markets list
+
+4. On any validation failure:
+   - Log raw response in ai_reasoning
+   - Set action='rejected', rejection_reason='[specific reason]'
+   - Increment consecutive_failures
+   - Continue to next cycle
+```
+
+### FOK Simulation Algorithm
+
+```
+simulate_fok_buy(asks: OrderBookLevel[], size_usd: number, fee_rate: number):
+  remaining_usd = size_usd
+  total_shares = 0
+
+  for each level in asks (sorted by price ASC):
+    affordable_shares = remaining_usd / level.price
+    fill_shares = min(affordable_shares, level.size)
+    cost = fill_shares * level.price
+    total_shares += fill_shares
+    remaining_usd -= cost
+    if remaining_usd <= 0.01: break
+
+  if remaining_usd > 0.01:
+    return { status: 'REJECTED', reason: 'insufficient_liquidity' }
+
+  actual_cost = size_usd - remaining_usd
+  avg_fill_price = actual_cost / total_shares
+  best_ask = asks[0].price
+  slippage_pct = ((avg_fill_price - best_ask) / best_ask) * 100
+  fee_usd = actual_cost * fee_rate
+
+  return {
+    status: 'FILLED',
+    size: total_shares,             // → trade_logs.size
+    execution_price: avg_fill_price, // → trade_logs.execution_price
+    slippage_percent: slippage_pct,
+    fee_usd: fee_usd,
+    size_usd: actual_cost
+  }
+
+simulate_fok_sell(bids: OrderBookLevel[], shares: number, fee_rate: number):
+  // Mirror logic walking bids DESC
+```
+
+---
+
+## Risk Rule Validation
+
+Six server-side checks. Run sequentially after FOK simulation, reject on first failure.
+
+1. **Daily AI Cost Cap Check**:
+   - Reject if `daily_ai_cost_usd >= daily_ai_limit`
+   - Reason: `'daily_ai_cost_limit_exceeded'`
+   - Limits: Free=$0.50/day, Pro=$1/day
+
+2. **Paper Balance Check**:
+   - If action=BUY: reject if `fok.size_usd + fok.fee_usd > paper_balance_usd`
+   - Reason: `'insufficient_paper_balance'`
+
+3. **Daily Loss Check**:
+   - Query: `SELECT COALESCE(SUM(realized_pnl_usd), 0) FROM trade_logs WHERE bot_id = $1 AND created_at >= CURRENT_DATE AND action = 'sell'`
+   - Reject if `abs(todays_loss) + size_usd > max_daily_loss_usd`
+   - Reason: `'daily_loss_limit_exceeded'`
+
+4. **Position Size Check**:
+   - Query positions table for current holdings
+   - For BUY: reject if `current_position_value + size_usd > max_position_size_usd`
+   - Reason: `'position_size_limit_exceeded'`
+
+5. **Trade Frequency Check**:
+   - Query: `SELECT COUNT(*) FROM trade_logs WHERE bot_id = $1 AND created_at >= CURRENT_DATE AND action IN ('buy', 'sell')`
+   - Reject if `trades_today >= max_trades_per_day`
+   - Reason: `'max_trades_per_day_exceeded'`
+
+6. **Slippage Check**:
+   - Use slippage_percent from FOK simulation
+   - Reject if `slippage_percent > slippage_threshold_percent`
+   - Reason: `'slippage_threshold_exceeded'`
+
+---
+
+## Onboarding Flow
+
+1. **Welcome**: App introduction, risk warnings, disclaimer acceptance
+2. **Sign In**: Apple or Google OAuth (Supabase Auth)
+3. **Create First Bot** (no credential import needed):
+   - Choose template or write custom strategy prompt
+   - Set risk rules (pre-filled from template)
+   - Set paper balance ($100 - $100,000)
+   - Select AI model
+4. **Paper Trading Begins Immediately**:
+   - Bot starts in `status='paper'`
+   - No unlock mechanism (paper only)
+   - Trade immediately
+
+**Note**: All trading is paper-only. No credential import, no unlock gates, no live activation.
+
+---
+
+## Monetization (Flat Fee Subscriptions)
+
+| Tier | Price | Polling | Models | Daily AI Cap |
+|------|-------|---------|--------|--------------|
+| **Free** | $0 | 4h (6x/day) | Cost-efficient | $0.50 |
+| **Pro** | $29/mo | 2h (12x/day) | Cost-efficient | $1.00 |
+
+**Cost Controls**:
+- Strict `max_tokens` per AI call
+- Polling frequency enforced by Inngest cron
+- Hard daily AI cost caps (no trades if exceeded)
+- Per-user daily cost tracking in `bots.daily_ai_cost_usd`
+
+### RevenueCat Integration
+
+```
+1. Mobile: RevenueCat SDK presents paywall
+2. RevenueCat manages subscription lifecycle
+3. RevenueCat webhook → Elysia POST /webhooks/revenuecat:
+   - Event 'INITIAL_PURCHASE' or 'RENEWAL': set user.tier to purchased tier
+   - Event 'CANCELLATION' or 'EXPIRATION': set user.tier = 'free'
+4. On tier change:
+   - Update user.tier in Supabase
+   - Cancel existing Inngest cron for bot
+   - Register new cron with updated polling_frequency_minutes (240 or 120)
+5. Entitlement IDs: 'pro' (free = no entitlement)
+```
+
+**Webhook Security**:
+- Verify RevenueCat webhook signatures
+- Implement idempotency with event IDs
+- Store processed event IDs for 24+ hours
+
+---
+
+## Notification Strategy
+
+**End-of-Day Summary Only** (no per-trade notifications)
+
+**Timing**: 9:00 AM user's local time
+
+**Content**:
+```
+Yesterday's Trading Summary for {bot_name}:
+
+Trades: {count}
+P&L: ${pnl} ({percent}%)
+Current Balance: ${balance}
+Positions: {count} open
+
+[View Dashboard]
+```
+
+**High Priority Alerts** (always sent, bypass user toggle):
+- Bot auto-paused (5 consecutive failures)
+- Daily loss limit hit
+
+**Implementation**:
+- Inngest daily cron at 9am per user timezone
+- Query trade_logs for previous day's activity
+- Send via Expo Push Notifications
+- Store `expo_push_token` in `users` table
+
+---
+
+## Inngest Configuration
+
+### Functions
+
+| Function ID | Trigger | Concurrency | Purpose |
+|-------------|---------|-------------|---------|
+| `bot/execute-{bot_id}` | Cron (240min or 120min) | 1 per bot | Main execution loop |
+| `bot/on-tier-change` | Event: `user/tier.changed` | 1 per user | Re-register bot cron on tier change |
+| `notifications/daily-summary` | Cron: 9:00 per user timezone | 1 per user | Send daily summary push |
+| `system/cleanup-cache` | Cron: daily 03:00 UTC | 1 | Delete stale market_cache rows |
+| `system/reset-ai-costs` | Cron: daily 00:00 UTC | 1 | Reset daily_ai_cost_usd for all bots |
+
+### Retry Policy
+
+- Bot execution: 1 retry for transient failures (network timeout)
+- Tier change handler: 3 retries with exponential backoff
+- Daily notifications: 3 retries
+
+### Bot Lifecycle
+
+```
+Bot created → register Inngest cron
+Bot paused  → cancel Inngest cron
+Bot resumed → re-register Inngest cron
+Bot deleted → cancel Inngest cron, soft-delete bot
+Tier changed → cancel old cron, register new cron
+```
+
+---
+
+## Database Backup & Disaster Recovery
+
+### Supabase PITR (Point-in-Time Recovery)
+
+- **Enabled**: Yes (Supabase Pro includes 7-day PITR)
+- **Retention**: 7 days of granular recovery
+- **Recovery Time**: 15-30 minutes to restore to any point
+
+### Daily Dumps (Future Implementation)
+
+**Status**: Not implemented for MVP (7-day PITR sufficient)
+
+**Future Plan**:
+- Schedule: Daily at 02:00 UTC
+- Destination: S3 or R2 (TBD)
+- Retention: 1 year
+- Format: pg_dump compressed
+- Monthly restore testing
+
+### Data Retention Policies
+
+| Data Type | Retention | Notes |
+|-----------|-----------|-------|
+| trade_logs | 1 year | Primary trading history |
+| market_cache | 30 days | Ephemeral market data |
+| positions | Until closed | Current holdings |
+| bot execution logs | 90 days | Inngest execution history |
+| user activity | 1 year | Auth and tier changes |
+
+### Disaster Recovery Runbook
+
+**Scenario 1: Accidental Data Deletion**
+1. Identify deletion timestamp
+2. Use Supabase PITR to restore to 5 minutes before deletion
+3. Export affected data
+4. Restore production to current time
+5. Import exported data
+6. Verify data consistency
+
+**Scenario 2: Complete Database Loss**
+1. Create new Supabase project
+2. Restore from most recent PITR point
+3. Update DATABASE_URL in Railway
+4. Restart Inngest workers
+5. Verify all bots resume correctly
+
+**Scenario 3: Bot Data Corruption**
+1. Pause affected bot via dashboard
+2. Query trade_logs for inconsistencies
+3. Manual reconciliation if needed
+4. Reset bot state if necessary
+5. Resume bot
+
+---
+
+## Error Handling
+
+### OpenRouter Failures
+- **Response**: Default to HOLD
+- **Retry**: 1 retry for transient failures
+- **Escalation**: After 5 consecutive failures, auto-pause bot + push notification
+- **Recovery**: User resumes manually, consecutive_failures resets on next successful EXECUTED trade
+
+### Polymarket API Failures
+- **Retry**: 3 attempts with exponential backoff (1s, 2s, 4s)
+- **Categories**:
+  - Rate limit (429): Exponential backoff with jitter
+  - Auth failure (401/403): Alert admin immediately
+  - Transient (5xx): Retry with backoff
+  - Invalid request (400): Log and skip (don't retry)
+
+### Database Failures
+- **Critical**: Execution halts, Inngest function throws
+- **Recovery**: Manual intervention required
+- **Monitoring**: Railway alerts on error rate > 5%
+
+### Consecutive Failures Tracking (CRITICAL FIX)
+
+**Reset Logic**:
+```typescript
+// CORRECT - Only reset on executed trades
+if (tradeExecuted && action !== 'hold' && action !== 'rejected') {
+  await db.bots.update(bot.id, { consecutive_failures: 0 });
+}
+
+// INCORRECT - Don't do this (resets on any success)
+// await db.bots.update(bot.id, { consecutive_failures: 0 });
+```
+
+---
+
+## Monitoring & Observability
+
+- **Logging**: Structured JSON to Railway native logs
+- **Alerts**: Railway alerts on error rate > 5%
+- **Health**: `GET /health` returns DB connectivity + Polymarket API reachability + Inngest status
+- **Metrics**: Per-user trade volume, bot uptime (Supabase query)
+- **Inngest Dashboard**: Built-in observability for execution history
+
+---
+
+## Security
+
+| Layer | Implementation |
+|-------|---------------|
+| **In Transit** | TLS 1.3 for all API communication |
+| **Auth** | Supabase Auth (Apple/Google OAuth), JWT validation |
+| **Rate Limiting** | Elysia middleware: 100 req/min per user |
+| **Paper Trading** | No sensitive credentials stored (Phase 2 only) |
+
+**Note**: No credential encryption needed for paper-only MVP. See docs/live-trading-architecture.md for Phase 2 security requirements.
+
+---
+
+## Roadmap
+
+### Phase 1: Paper Trading MVP (Current)
+- ✅ 50 curated markets
+- ✅ Paper trading with simulated execution
+- ✅ End-of-day notifications
+- ✅ RevenueCat subscriptions
+- ✅ Cost controls ($0.50/$1 daily caps)
+
+### Phase 2: Live Trading (Future)
+- Credential management and encryption
+- Real order execution on Polymarket
+- KYC/AML compliance
+- Regulatory licensing
+- Enhanced security (see docs/live-trading-architecture.md)
+
+### Phase 3: Scale
+- Multiple bots per user
+- AI-powered market discovery
 - Historical backtesting
-- Prompt library/community sharing
-- Auto-claim winnings
-- Insurance fund from fees
-- Open-source parts for transparency
+- Strategy marketplace
+
+---
+
+## Risks & Disclaimers (Shown Everywhere)
+
+- **Paper Trading**: Results are simulated and do not guarantee live performance
+- **No Live Trading**: This is a paper trading platform only
+- **No Guarantees**: AI bots can and will lose simulated money
+- **High Risk**: Prediction markets involve total loss possibility
+- **Not Financial Advice**: Users trade at own risk
+
+---
+
+## Critical Bug Fixes Summary
+
+### Fix 1: Consecutive Failures Reset Logic
+**Problem**: Resetting on any "success" includes HOLD decisions
+**Solution**: Only reset on EXECUTED trades (not HOLD or rejected)
+**Location**: Step 7f of execution loop
+
+### Fix 2: Idempotency (Proper Implementation)
+**Problem**: execution_id generated after trade, vulnerable to network timeouts
+**Solution**: Insert PENDING trade_log first, then update to EXECUTED
+**Location**: Step 7 of execution loop
+
+### Fix 3: Daily AI Cost Enforcement
+**Problem**: Soft tracking mentioned but not implemented
+**Solution**: Hard stop when daily_ai_cost_usd >= limit
+**Location**: Step 1 of execution loop, Risk Rule 1
+
+### Fix 4: Paper Balance Validation Timing
+**Problem**: Risk validation happens before FOK simulation
+**Solution**: Run FOK simulation first (Step 5), use results in validation (Step 6)
+**Location**: Execution loop reordered
+
+### Fix 5: Cost Tracking
+**Problem**: No mechanism to track cumulative AI costs
+**Solution**: Add `daily_ai_cost_usd` column with daily reset cron
+**Location**: supabase-schema.md, bots table
+
+---
+
+## Files Reference
+
+- **docs/markets.md**: 50 curated markets template
+- **docs/supabase-schema.md**: Database schema with critical fixes
+- **docs/live-trading-architecture.md**: Phase 2 architecture (not implemented)
+- **docs-old/**: Reference documentation (keep for historical context)
