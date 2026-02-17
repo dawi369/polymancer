@@ -1,10 +1,10 @@
 # Polymancer Tech Spec
 
-This document defines technical implementation details for the MVP. Product scope, UX, and feature goals live in `docs/docs-mk3/design-spec.md` to avoid duplication.
+This document defines technical implementation details for the MVP. Product scope, UX, and feature goals live in `docs/design-spec.md` to avoid duplication.
 
 ## System Components
 
-- Mobile app: Expo (UI only, no trading logic). Expo 55 is fine for now since we are not shipping soon!
+- Mobile app: Expo (UI only, no trading logic).
 - Backend API: Bun + Elysia on Fly.io (fast, user-facing HTTP).
 - Worker: Bun process on Fly.io (long-running, handles bot execution).
 - Polyseer: Research pipeline invoked by Worker (not a scheduled daemon).
@@ -25,10 +25,10 @@ packages/database           # Supabase types, schema, client
 packages/shared             # Shared types and utilities
 ```
 
-**Dependencies**:
+Dependencies:
 
-- `pmxt` → External bun package (`pmxtjs`), installed in apps/api and apps/worker
-- `polyseer` → Git submodule at packages/polyseer
+- pmxt is an external npm package (`pmxtjs`), installed in apps/api and apps/worker
+- polyseer is a git submodule at packages/polyseer
 - All apps use workspace packages via `workspace:*` protocol
 
 ## Agent Architecture
@@ -43,9 +43,9 @@ See `docs/agent-schema.md` for the complete agent system design, including:
 
 ## Polyseer Integration
 
-**Polyseer is a 3rd-party research tool, NOT part of our agent architecture.**
+Polyseer is a third-party research tool, not part of our agent architecture.
 
-We integrate Polyseer (github.com/yorkeccak/Polyseer) as a **git submodule** or **bun dependency**. It provides deep market research capabilities that our Decision Agent can invoke.
+We integrate Polyseer (github.com/yorkeccak/Polyseer) as a git submodule. It provides deep market research capabilities that our Decision Agent can invoke.
 
 ### What Polyseer Does
 
@@ -101,16 +101,16 @@ class PolyseerResearchTool {
 - Concurrency guard: only one run per bot at a time (job claim with `FOR UPDATE SKIP LOCKED`).
 - Runs are idempotent and safe to retry.
 
-### Run Flow (Single Execution) - SIMPLIFIED
+### Run Flow (Single Execution)
 
 1. Worker picks up due bot (scheduled every 4 hours, or reactive trigger)
 2. Open 5-minute decision window
-3. Load bot config including **user strategy prompt** (advice)
+3. Load bot config including user strategy prompt
 4. Enforce kill switch, pause status, daily AI cost cap
-5. **Decision Agent** analyzes market using tools:
+5. Decision Agent analyzes market using tools:
    - Query pmxt for market data (prices, order book)
    - Query Pamela news service for signals
-   - **Optionally** invoke Polyseer for deep research (if uncertain/high-value)
+   - Optionally invoke Polyseer for deep research (if uncertain/high-value)
 6. LLM synthesizes: user advice + research + market data + news
 7. Generate decision intent (BUY/SELL/HOLD with reasoning)
 8. Run risk checks (position size, daily loss, slippage)
@@ -118,11 +118,11 @@ class PolyseerResearchTool {
 10. Record decision, update positions, emit notifications
 11. Close decision window
 
-**Key Change**: Steps 6-12 from the old flow are now ONE Polyseer invocation (when needed), not our internal flow.
+
 
 ## pmxt Integration
 
-**pmxt is our trading infrastructure** (github.com/pmxt-dev/pmxt).
+pmxt is our trading infrastructure (github.com/pmxt-dev/pmxt).
 
 ### What pmxt Provides
 
@@ -153,61 +153,16 @@ const order = await exchange.createOrder({
 });
 ```
 
-### Why pmxt?
+### Why pmxt
 
-- **Don't build custom Polymarket integration** - 650 stars, actively maintained
+- Do not build custom Polymarket integration
 - Supports both markets we need (Polymarket + Kalshi)
-- Same API for paper and live trading (easy to switch later)
+- Same API for paper and live trading
 - Handles order book walking, fees, execution
 
 ## User Advice Integration
 
-The bot listens to user trading advice through a **strategy prompt**.
-
-### Strategy Prompt
-
-```typescript
-interface BotConfig {
-  strategyPrompt: string; // User's trading philosophy/advice
-  // Example: "Focus on political markets. Avoid sports.
-  //           Risk 2% per trade. Prefer high-confidence setups.
-  //           Exit if news sentiment turns negative."
-}
-```
-
-### How It's Used
-
-```typescript
-// In Decision Agent
-const systemPrompt = `
-You are a prediction market trading assistant. 
-
-USER'S TRADING STRATEGY:
-${botConfig.strategyPrompt}
-
-CURRENT PORTFOLIO:
-${portfolioSummary}
-
-MARKET CONTEXT:
-${marketData}
-
-RESEARCH (from Polyseer):
-${researchResults}
-
-Make a trading decision that aligns with the user's strategy.
-`;
-
-const decision = await llm.generate(systemPrompt);
-```
-
-### Chat Interface
-
-Users can:
-
-- Ask "Why did you trade X?" → Agent explains decision using logged reasoning
-- Say "Be more aggressive" → Updates strategy prompt
-- Ask "What do you think about market Y?" → Agent researches + gives opinion
-- Trigger "Run analysis now" → Immediate bot run
+User advice is stored as a strategy prompt on the bot and injected into the Decision Agent context. See `docs/agent-schema.md` for behavior rules and chat interactions.
 
 ## ExecutionAdapter
 
@@ -276,41 +231,7 @@ API key management:
 - Valyu API key required for agent research capabilities
 - Configured at deployment level (not per-user)
 
-### Decision Schema (MVP)
-
-```json
-{
-  "action": "BUY" | "SELL" | "HOLD",
-  "market_id": "...",
-  "token": "YES" | "NO",
-  "size_usd": 25.0,
-  "size_shares": 50.0,
-  "confidence": 0.0,
-  "reasoning": "..."
-}
-```
-
-- Agent may return USD or shares. System normalizes both.
-- Responses must be strict JSON. No tool calls in MVP.
-
-### Polyseer Output Schema
-
-Polyseer's Reporter Agent outputs:
-
-```json
-{
-  "verdict": "YES" | "NO" | "UNCLEAR",
-  "pNeutral": 0.65,
-  "pAware": 0.72,
-  "confidence": "HIGH" | "MEDIUM" | "LOW",
-  "evidence_summary": {
-    "pro": ["point 1", "point 2"],
-    "con": ["point 1"]
-  },
-  "key_factors": ["factor 1", "factor 2"],
-  "recommendation": "BUY" | "SELL" | "HOLD"
-}
-```
+Decision intent and Polyseer output schemas are defined in `docs/agent-schema.md`.
 
 ## Risk and Policy Engine
 

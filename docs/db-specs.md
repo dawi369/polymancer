@@ -20,8 +20,8 @@ Primary user record linked to Supabase Auth.
 | tier | text | default 'trial' | 'trial', 'paid' |
 | trial_started_at | timestamptz | | When trial began |
 | trial_ends_at | timestamptz | | When trial expires |
-| timezone | text | default 'UTC timezone for notifications |
-' | User's| notifications_enabled | bool | default true | Push notification preference |
+| timezone | text | default 'UTC' | User timezone for notifications |
+| notifications_enabled | bool | default true | Push notification preference |
 | telegram_linked_at | timestamptz | | When Telegram was linked |
 | created_at | timestamptz | default now | |
 | updated_at | timestamptz | default now | |
@@ -97,7 +97,7 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 ### Indexes
 - `runs(id)` - primary key
 - `runs(bot_id)` - for looking up bot history
-- `runs(status, next_run_at)` - for worker polling (computed)
+- `runs(status, created_at desc)` - for admin queries
 - `runs(idempotency_key)` - unique
 
 ### RLS
@@ -117,7 +117,7 @@ Every trading decision (including HOLD and REJECTED).
 | bot_id | uuid | fk -> bots.id | |
 | action | text | | 'buy', 'sell', 'hold', 'rejected' |
 | execution_status | text | default 'pending' | 'pending', 'executed', 'failed' |
-| market_id | text | | Polymarket market ID |
+| market_id | text | | Market ID from pmxt |
 | token | text | | 'yes' or 'no' |
 | size_usd | numeric | | Order size in USD |
 | size_shares | numeric | | Order size in shares |
@@ -152,7 +152,7 @@ Current paper holdings per market.
 |--------|------|-------------|-------------|
 | id | uuid | pk | |
 | bot_id | uuid | fk -> bots.id | |
-| market_id | text | | Polymarket market ID |
+| market_id | text | | Market ID from pmxt |
 | token | text | | 'yes' or 'no' |
 | total_shares | numeric | | Number of shares held |
 | average_entry_price | numeric | | Weighted average entry |

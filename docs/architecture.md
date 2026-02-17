@@ -73,7 +73,7 @@ For agent behavior, data contracts, and scheduling rules, see `docs/agent-schema
 
 ### pmxt Integration
 
-- External trading SDK (bun package `pmxtjs`)
+- External trading SDK (npm package `pmxtjs`)
 - Market data, order book, and execution abstraction
 - Used for paper trading in MVP
 

@@ -8,10 +8,10 @@ Summon your 24/7 Polymarket trader.
 
 Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading agent. The system uses:
 
-- **Polyseer** as a research tool (multi-agent AI research system) - integrated, not rebuilt
-- **pmxt SDK** for unified Polymarket/Kalshi market access and trading
-- **Decision Agent** (our code) - lightweight orchestration layer that combines user advice, Polyseer research, and market data to make trading decisions
-- **ExecutionAdapter** (pmxt paper trading) for simulated FOK execution
+- Polyseer as a research tool (integrated, not rebuilt)
+- pmxt SDK for unified Polymarket/Kalshi market access and trading
+- Decision Agent (our code) that combines user advice, research, and market data
+- ExecutionAdapter (pmxt paper trading) for simulated FOK execution
 
 ## Goals
 
@@ -52,33 +52,18 @@ Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
                           |
                     Worker (Bun, Fly.io)
                           |
-                          |-> Decision Agent (OUR CODE - lightweight)
-                          |   |
-                          |   +-> Polyseer (3rd-party research tool)
-                          |   |   Runs: Planner, Researcher, Critic,
-                          |   |         Analyst, Reporter agents
-                          |   |   Outputs: pNeutral, pAware, evidence
-                          |   |
-                          |   +-> pmxt SDK (3rd-party trading infra)
-                          |   |   Provides: Market data, paper trading
-                          |   |         Supports: Polymarket + Kalshi
-                          |   |
-                          |   +-> Pamela News (ported - our code)
-                          |   |   Provides: News signals, confidence
-                          |   |
-                          |   +-> OpenRouter (LLM for decisions)
-                          |       Combines: User advice + research + data
+                          |-> Decision Agent (our code)
+                          |   +-> Polyseer (research tool)
+                          |   +-> pmxt (market data + trading)
+                          |   +-> Pamela News (signals)
+                          |   +-> OpenRouter (LLM)
                           |
                           |-> Notifications (Expo Push)
                           |-> Telegram bot
 ```
 
-**Key Clarification**:
-
-- **Polyseer** = 3rd-party research tool we invoke (git submodule)
-- **pmxt** = 3rd-party trading SDK we use (bun package)
-- **Decision Agent** = Our code - single LLM with tool access that orchestrates everything
-- **We do NOT rebuild Polyseer's 6-agent system**
+Detailed component boundaries are in `docs/architecture.md`.
+Agent behavior, data contracts, and scheduling rules are in `docs/agent-schema.md`.
 
 ### Hosting
 
@@ -86,96 +71,12 @@ Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
 - **Worker**: Long-running process on Fly.io that:
   - Polls for due bots every 30-60s
   - Claims jobs with `FOR UPDATE SKIP LOCKED` for safe horizontal scaling
-  - Runs Polyseer pipeline, executes paper trades, records results
+  - Runs the Decision Agent, invokes Polyseer when needed, executes paper trades, records results
 - **Database**: Supabase Postgres (shared by API + Worker)
 
-## Polyseer Integration
+## Technical References
 
-Polyseer is a **research pipeline/tool**, not a scheduled daemon. We invoke it on-demand for each bot run.
-
-- Add Polyseer as a git submodule to keep upstream intact.
-- Polyseer provides multi-agent research system: Planner, Researcher, Critic, Analyst, Reporter.
-- Entry point: `runUnifiedForecastPipeline(marketUrl, options)` - synchronous pipeline that returns a ForecastCard.
-- Progress tracking via `onProgress` callback events.
-- Replace only the execution boundary with an adapter layer.
-- Scheduling is handled by our Worker (not Polyseer).
-- Use Polyseer market research; only cap the context to 50 markets.
-- Research powered by Valyu API for deep + web search capabilities.
-
-### Bot Run Cycle
-
-1. Worker picks up due bot (every 4 hours).
-2. Opens 5-minute decision window.
-3. Polyseer researches markets and outputs pNeutral/pAware + recommendation.
-4. System parses output, fetches order book via pmxt.
-5. Paper adapter simulates FOK trade if conditions met.
-6. Records decision + result.
-7. Window closes (or earlier if no good opportunities).
-
-## pmxt Integration
-
-- pmxt SDK provides unified API for Polymarket and Kalshi.
-- Used for both market data fetching and trading execution.
-- Paper adapter: simulates FOK fills using real order book data.
-- Live adapter: stubbed, hard fail unless LIVE_TRADING_ENABLED.
-
-### Paper Trading Simulation (FOK Only)
-
-- Input: L2 order book (via pmxt), market metadata, fee schedule.
-- Walk order book to compute average fill price.
-- Reject if full size cannot be filled (FOK).
-- Calculate slippage vs best bid/ask at decision time.
-- Apply fees to compute net impact on balance.
-
-### Interface (conceptual)
-
-```
-interface ExecutionAdapter {
-  quoteOrder(input): Quote
-  placeOrder(input): ExecutionResult
-  getPositions(userId): Position[]
-  getMarketData(marketIds): MarketData[]
-}
-```
-
-### Paper Adapter (MVP)
-
-- Simulates FOK using real order book depth via pmxt.
-- Applies Polymarket/Kalshi fees and slippage.
-- Adds artificial latency (200-500ms) before returning fills.
-- Never signs or submits live orders.
-
-### Live Adapter (Future)
-
-- Stubbed out in MVP.
-- Hard fail if invoked (safety guardrail).
-- Only enabled after legal review and explicit feature flag.
-
-## Market Discovery and Context Size
-
-- Discovery: Polyseer research agents across the full market universe.
-- Prompt limit: select up to 50 markets per run.
-- No liquidity filters in MVP.
-- No TTL caching in MVP (data pulled on demand).
-
-## AI Decision Loop
-
-1. Polyseer receives market question or trigger.
-2. Planner generates research strategy and search seeds.
-3. Researcher gathers PRO/CON evidence via Valyu API.
-4. Critic identifies gaps, triggers follow-up if needed.
-5. Analyst performs Bayesian probability aggregation.
-6. Reporter generates final verdict with pNeutral and pAware.
-7. System parses Polyseer output for trading decision.
-8. Fetch market data via pmxt.
-9. Simulate FOK trade via paper adapter.
-10. Enforce risk rules.
-11. Record decision and execution.
-
-### Malformed Response Policy
-
-- Retry twice.
-- If still invalid, pause bot and alert user.
+Implementation details for Polyseer, pmxt, execution, and data model live in `docs/tech-spec.md`.
 
 ## Risk Rules and Defaults
 

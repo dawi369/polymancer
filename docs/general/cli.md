@@ -1,31 +1,30 @@
-# 🔮 Polymancer CLI Cheat Sheet
+# Polymancer CLI Cheat Sheet
 
-**Run all commands from the repository root.**
+Run all commands from the repository root unless noted.
 
-### 🛠 Workspace Global
+## Workspace
 
-- **Install/Sync All**: `bun install`
-- **Nuke & Reinstall**: `rm -rf node_modules && bun install`
+- Install dependencies: `bun install`
+- Reinstall cleanly: `rm -rf node_modules && bun install`
 
-### 📱 Mobile (Expo)
+## Mobile (Expo)
 
-- **Start Dev**: `bun --filter @polymancer/mobile start`
-- **Clear Cache**: `bun --filter @polymancer/mobile start -c`
-- **Install Package**: `bun add --filter @polymancer/mobile [pkg]`
-- **iOS Build**: `cd apps/mobile && eas build --platform ios`
+- Start dev server: `cd apps/mobile && bun start`
+- Clear cache: `cd apps/mobile && bun start -c`
+- Install package: `cd apps/mobile && bun add [pkg]`
+- iOS build: `cd apps/mobile && eas build --platform ios`
 
-### ⚙️ Backend (Elysia)
+## API (Elysia)
 
-- **Start Dev**: `bun --filter @polymancer/api dev`
-- **Install Package**: `bun add --filter @polymancer/api [pkg]`
-- **Test Local**: `curl http://localhost:3000`
+- Start dev server: `cd apps/api && bun run dev`
+- Install package: `cd apps/api && bun add [pkg]`
+- Test local: `curl http://localhost:3000`
 
-### 📦 Database (Shared)
+## Database (Shared)
 
-- **Edit Types**: Modify `packages/database/index.ts`
-- **Supabase Sync**: `npx supabase gen types typescript --project-id [id] > packages/database/schema.ts`
+- Edit types: `packages/database/index.ts`
+- Supabase type sync: `npx supabase gen types typescript --project-id [id] > packages/database/schema.ts`
 
-### 🚀 Railway (Deploy)
+## Worker
 
-- **Login**: `railway login`
-- **Deploy Backend**: `cd apps/api && railway up`
+- Start worker dev: `cd apps/worker && bun run dev`
