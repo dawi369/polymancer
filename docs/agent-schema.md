@@ -1,49 +1,46 @@
 # Polymancer Agent Schema
 
-This document defines the complete agent architecture for Polymancer. It is a comprehensive, actionable plan that ties together interactive chat, reactive news scanning, Polyseer research, and paper trading execution.
+This document specifies agent behavior, inputs, outputs, and run rules.
+For system-level components and boundaries, see `docs/architecture.md`.
 
 ## Goals
 
-- 24/7 interactive agent that can answer anything and explain its reasoning.
-- Reactive to news and market movement, not only scheduled runs.
-- Uses Polyseer as a research tool for high-quality evidence.
-- Makes decisions autonomously but enforces hard safety boundaries.
-- Multi-tenant by design, with predictable performance and cost control.
+- 24/7 interactive agent that can answer questions and explain reasoning
+- Reactive to news and market movement, not only scheduled runs
+- Uses Polyseer as a research tool for high-quality evidence
+- Makes decisions autonomously while enforcing hard safety boundaries
+- Multi-tenant design with predictable performance and cost control
 
 ## Core Principles
 
-- Polyseer is a research pipeline, not the decision maker.
-- Decision authority lives in the Decision Agent layer.
-- Risk checks are enforced outside the agent.
-- All decisions are auditable and explainable.
-- Scheduling and reactive triggers are centralized in the Worker.
+- Polyseer is a research pipeline, not the decision maker
+- Decision authority lives in the Decision Agent layer
+- Risk checks are enforced outside the agent
+- All decisions are auditable and explainable
+- Scheduling and reactive triggers are centralized in the Worker
 
-## System Overview
+## Agent Scope and Dependencies
 
-```
-Telegram / App Chat
-        |
-        v
-Decision Agent (LLM + Tools)
-        |
-        +-> Polyseer (research tool)
-        +-> News + Market Signals
-        +-> Market Data (pmxt)
-        +-> Portfolio / Trade Logs
-        v
-Risk / Policy Engine (hard boundary)
-        v
-Paper Execution Adapter (FOK sim)
-        v
-Database (runs, trade_logs, positions, summaries)
+### Inputs
+- User strategy prompt and constraints
+- Current portfolio and trade history
+- Market data and order book snapshots
+- News signals and reactive triggers
+- Optional Polyseer research output
 
-Worker: schedules + executes runs (scheduled, reactive, user-triggered)
-API: serves chat, reads state, exposes bot controls
-```
+### Tools
+- Polyseer research tool (external, invoked on demand)
+- pmxt market data and execution tool (external SDK)
+- Pamela news pipeline (ported)
+- Portfolio and trade history access
+- Chat interface for user interaction
 
-## Components
+### Outputs
+- Decision intent (BUY/SELL/HOLD) with sizing and reasoning
+- Structured explanation for chat responses
+- Execution logs and risk evaluation results
 
-### 1) Decision Agent
+## Decision Agent
 
 The Decision Agent is the conversational brain and the only component allowed to recommend trades.
 
@@ -54,10 +51,10 @@ Responsibilities:
 - Output structured decision intents
 
 Outputs:
-- Decision JSON (BUY / SELL / HOLD + size + market)
-- Explanation (evidence summary + rationale + risk context)
+- Decision JSON (BUY/SELL/HOLD with size, market, confidence)
+- Explanation (evidence summary, rationale, risk context)
 
-### 2) Polyseer Research Tool
+## Polyseer Research Tool
 
 Polyseer is invoked as a synchronous pipeline for deeper evidence.
 
@@ -68,11 +65,11 @@ Outputs:
 - `ForecastCard` with `pNeutral`, `pAware`, `recommendation`, `evidence_summary`
 
 Usage rules:
-- Use Polyseer for high-confidence or ambiguous trades
-- Skip Polyseer for simple low-stakes chat
+- Use Polyseer for high-value or ambiguous trades
+- Skip Polyseer for low-stakes chat or routine checks
 - Enforce per-run cost limits
 
-### 3) Signal Layer (Reactive)
+## Signal Layer (Reactive)
 
 Signals are used to trigger reactive runs.
 
@@ -85,7 +82,7 @@ Signal scoring:
 - Each signal outputs `score` and `reason`
 - If score passes threshold, enqueue a run
 
-### 4) Worker Runtime
+## Worker Runtime
 
 The Worker handles all execution. It is long-running and job-queue driven.
 
@@ -95,7 +92,7 @@ Responsibilities:
 - User-triggered runs
 - Concurrency control and fairness
 
-### 5) Risk / Policy Engine
+## Risk and Policy Engine
 
 Hard boundary that validates every decision before execution.
 
@@ -108,12 +105,13 @@ Checks include:
 - Slippage threshold
 - Paper balance sufficient
 
-### 6) Paper Execution Adapter
+## Execution Adapter
 
 FOK simulation using pmxt order book depth.
+
 - No partial fills
-- Simulated latency (200-500ms)
-- Fee schedule applied
+- Uses pmxt market data for order book walking
+- Applies fee schedule and slippage checks
 
 ## Data Contracts
 
@@ -152,21 +150,23 @@ FOK simulation using pmxt order book depth.
 ## Run Types and Scheduling
 
 ### Scheduled Runs
+
 - Every 4 hours
 - 5-minute decision window
 - If no opportunity, end early
 
-### Reactive Runs (Permissive Defaults)
-Default thresholds (adjustable):
+### Reactive Runs (Defaults)
+
 - News signal confidence >= 0.70 and at least 3 relevant articles
-- Price move >= 5% within 15 minutes
-- Liquidity change >= 30% within 15 minutes
+- Price move >= 5 percent within 15 minutes
+- Liquidity change >= 30 percent within 15 minutes
 - Volume spike >= 2x 24h average
 
 If any threshold is met:
 - Enqueue a reactive run immediately
 
 ### User-Triggered Runs
+
 - Chat command "run now" enqueues a run
 - If a run is already in progress, the request is queued
 
@@ -197,8 +197,8 @@ Port these modules directly:
 
 Usage:
 - Cache and score articles
-- Derive bullish/bearish signals
-- Provide context to Decision Agent
+- Derive bullish or bearish signals
+- Provide context to the Decision Agent
 
 Provider (MVP):
 - NewsAPI as the initial source
@@ -207,30 +207,28 @@ Provider (MVP):
 
 ## Chat Capabilities (24/7)
 
-The agent can answer any question at any time.
-
 Allowed interactions:
 - General market questions
 - "Why did you trade X?"
 - "What do you think about market Y?"
 - "Run analysis now"
 
-Chat behavior rules:
+Behavior rules:
 - Use smaller model for casual chat if needed
 - Use Decision Agent for anything involving trades
 - Use Polyseer only when a decision requires deep evidence
 
 ## Execution Lifecycle
 
-1) Worker claims a run
-2) Decision window opens
-3) Decision Agent gathers context + signals
-4) Polyseer invoked if needed
-5) Decision intent produced
-6) Risk / Policy Engine validates
-7) Paper adapter simulates FOK trade
-8) Logs + positions updated
-9) Notifications sent
+1. Worker claims a run
+2. Decision window opens
+3. Decision Agent gathers context and signals
+4. Polyseer invoked if needed
+5. Decision intent produced
+6. Risk and policy engine validates
+7. Paper adapter simulates FOK trade
+8. Logs and positions updated
+9. Notifications sent
 
 ## Failure Handling
 
@@ -250,7 +248,7 @@ All trade actions are idempotent using `idempotency_key`.
 - max_position_size_usd: 200
 - slippage_threshold_percent: 2
 
-## Open Items (to refine later)
+## Open Items
 
 - Exact signal thresholds after live data testing
 - Final LLM model selection for chat vs decision (separate models, TBD)
@@ -259,4 +257,5 @@ All trade actions are idempotent using `idempotency_key`.
 
 ## Summary
 
-This schema combines interactive chat, reactive signal processing, and Polyseer research into a unified agent system. It is designed to be comprehensive, scalable, and safe, while still providing a responsive agent experience.
+This schema defines the Decision Agent behavior, data contracts, and run lifecycle.
+Polyseer provides research input, while the Decision Agent owns final decisions.

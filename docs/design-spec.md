@@ -6,7 +6,12 @@ Summon your 24/7 Polymarket trader.
 
 ## Summary
 
-Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading agent. The core agent comes from Polyseer (multi-agent AI research system) and is connected to Polymarket via pmxt SDK, with an ExecutionAdapter guaranteeing simulated trading only.
+Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading agent. The system uses:
+
+- **Polyseer** as a research tool (multi-agent AI research system) - integrated, not rebuilt
+- **pmxt SDK** for unified Polymarket/Kalshi market access and trading
+- **Decision Agent** (our code) - lightweight orchestration layer that combines user advice, Polyseer research, and market data to make trading decisions
+- **ExecutionAdapter** (pmxt paper trading) for simulated FOK execution
 
 ## Goals
 
@@ -47,20 +52,33 @@ Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
                           |
                     Worker (Bun, Fly.io)
                           |
-                          |-> Polyseer pipeline (research tool)
-                          |   |-> Planner Agent
-                          |   |-> Researcher Agent (Valyu)
-                          |   |-> Critic Agent
-                          |   |-> Analyst Agent (Bayesian)
-                          |   |-> Reporter Agent
-                          |-> pmxt SDK
-                          |   |-> Paper Adapter (simulated FOK)
-                          |   |-> Live Adapter (stubbed)
-                          |-> OpenRouter (decision LLM)
-                          |-> Polymarket (via pmxt)
+                          |-> Decision Agent (OUR CODE - lightweight)
+                          |   |
+                          |   +-> Polyseer (3rd-party research tool)
+                          |   |   Runs: Planner, Researcher, Critic,
+                          |   |         Analyst, Reporter agents
+                          |   |   Outputs: pNeutral, pAware, evidence
+                          |   |
+                          |   +-> pmxt SDK (3rd-party trading infra)
+                          |   |   Provides: Market data, paper trading
+                          |   |         Supports: Polymarket + Kalshi
+                          |   |
+                          |   +-> Pamela News (ported - our code)
+                          |   |   Provides: News signals, confidence
+                          |   |
+                          |   +-> OpenRouter (LLM for decisions)
+                          |       Combines: User advice + research + data
+                          |
                           |-> Notifications (Expo Push)
                           |-> Telegram bot
 ```
+
+**Key Clarification**:
+
+- **Polyseer** = 3rd-party research tool we invoke (git submodule)
+- **pmxt** = 3rd-party trading SDK we use (bun package)
+- **Decision Agent** = Our code - single LLM with tool access that orchestrates everything
+- **We do NOT rebuild Polyseer's 6-agent system**
 
 ### Hosting
 

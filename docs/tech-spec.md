@@ -4,7 +4,7 @@ This document defines technical implementation details for the MVP. Product scop
 
 ## System Components
 
-- Mobile app: Expo (UI only, no trading logic).
+- Mobile app: Expo (UI only, no trading logic). Expo 55 is fine for now since we are not shipping soon!
 - Backend API: Bun + Elysia on Fly.io (fast, user-facing HTTP).
 - Worker: Bun process on Fly.io (long-running, handles bot execution).
 - Polyseer: Research pipeline invoked by Worker (not a scheduled daemon).
@@ -15,81 +15,82 @@ This document defines technical implementation details for the MVP. Product scop
 ## Repository Layout (Target)
 
 ```
-apps/api                # Elysia API (user-facing HTTP)
-apps/worker             # Bot execution worker (long-running)
-apps/mobile             # Expo app
-packages/agent          # Polyseer (git submodule)
-packages/pmxt           # pmxt SDK for market data + trading
-packages/pamela-core    # Ported from Pamela (news, signals, confidence)
-packages/simulator      # Paper trading simulation
-packages/shared         # Shared types and utilities
+apps/api                    # Elysia API (user-facing HTTP)
+apps/worker                 # Bot execution worker (long-running)
+apps/mobile                 # Expo app
+packages/agent-core         # Decision Agent - our code (LLM orchestration)
+packages/polyseer           # Polyseer research tool (git submodule)
+packages/pamela-core        # Ported from Pamela (news, signals, confidence)
+packages/database           # Supabase types, schema, client
+packages/shared             # Shared types and utilities
 ```
+
+**Dependencies**:
+
+- `pmxt` → External bun package (`pmxtjs`), installed in apps/api and apps/worker
+- `polyseer` → Git submodule at packages/polyseer
+- All apps use workspace packages via `workspace:*` protocol
 
 ## Agent Architecture
 
 See `docs/agent-schema.md` for the complete agent system design, including:
+
 - Decision Agent (conversation + decision authority)
 - Signal Layer (reactive triggers)
 - Worker execution pipeline
 - Chat integration
 - Reused components from Pamela
 
-## Polyseer Agent Architecture
+## Polyseer Integration
 
-Polyseer is a multi-agent AI system that conducts deep research on prediction markets. It consists of six specialized agents working in concert:
+**Polyseer is a 3rd-party research tool, NOT part of our agent architecture.**
 
-### Agent Roles
+We integrate Polyseer (github.com/yorkeccak/Polyseer) as a **git submodule** or **bun dependency**. It provides deep market research capabilities that our Decision Agent can invoke.
 
-1. **Orchestrator** - Coordinates the research workflow, manages state between agents
-2. **Planner Agent** - Breaks down market questions into research pathways, generates subclaims and search seeds
-3. **Researcher Agent** - Gathers evidence from multiple sources using Valyu Deep Search and Web Search
-4. **Critic Agent** - Identifies evidence gaps, provides quality feedback, recommends follow-up searches
-5. **Analyst Agent** - Performs Bayesian probability aggregation to compute final probabilities
-6. **Reporter Agent** - Generates human-readable analysis reports
+### What Polyseer Does
 
-### Research Cycle
+- Multi-agent AI research on prediction markets (Polymarket + Kalshi)
+- Uses Valyu API for deep + web search
+- Provides Bayesian probability analysis
+- Outputs structured research reports
 
+### How We Use Polyseer
+
+```typescript
+// Polyseer is a tool in our agent's toolkit
+class PolyseerResearchTool {
+  async research(marketUrl: string): Promise<ResearchResult> {
+    // Invoke Polyseer's pipeline
+    const result = await polyseer.runUnifiedForecastPipeline({
+      marketUrl,
+      onProgress: (step) => this.emitProgress(step),
+    });
+
+    return {
+      pNeutral: result.pNeutral, // Objective probability
+      pAware: result.pAware, // Market-informed probability
+      recommendation: result.recommendation, // BUY/SELL/HOLD
+      evidence: result.evidence_summary,
+      confidence: result.confidence,
+    };
+  }
+}
 ```
-User Query -> Orchestrator -> Planner -> Researcher (PRO) / Researcher (CON)
-                                              |
-                                              v
-                                        Valyu Search
-                                              |
-                                              v
-                                        Evidence Classification (A/B/C/D)
-                                              |
-                                              v
-                                        Critic Agent (gap analysis)
-                                              |
-                                              v
-                                        Follow-up Research (if needed)
-                                              |
-                                              v
-                                        Analyst (Bayesian aggregation)
-                                              |
-                                              v
-                                        Reporter -> Final Verdict
-```
 
-### Evidence Quality Classification
+### When to Use Polyseer
 
-| Type | Description | Weight Cap |
-|------|-------------|------------|
-| A | Primary Sources (official docs, press releases) | 2.0 |
-| B | High-Quality Secondary (Reuters, Bloomberg, WSJ) | 1.6 |
-| C | Standard Secondary (reputable news with citations) | 0.8 |
-| D | Weak/Speculative (social media, rumors) | 0.3 |
+| Scenario         | Use Polyseer? | Rationale                             |
+| ---------------- | ------------- | ------------------------------------- |
+| High-value trade | Yes           | Worth the research cost (~$0.10-0.30) |
+| Uncertain market | Yes           | Need deep analysis                    |
+| Routine check    | No            | Use simple market data + news         |
+| Chat Q&A         | No            | Answer from portfolio history         |
 
-### Bayesian Probability Aggregation
+### Cost Control
 
-Key formulas:
-- **Log Likelihood Ratio**: `LLR = log(P(evidence|YES) / P(evidence|NO))`
-- **Probability Update**: `p_new = p_old * exp(LLR)`
-- **Correlation Adjustment**: Accounts for evidence clustering and dependencies
-
-Outputs:
-- **pNeutral**: Objective assessment based purely on evidence
-- **pAware**: Market-informed probability incorporating current prices
+- Daily limit: $0.50 per bot (Valyu + OpenRouter combined)
+- Polyseer calls are the expensive part
+- Skip Polyseer when confidence is already high/low
 
 ## Runtime Model
 
@@ -100,27 +101,113 @@ Outputs:
 - Concurrency guard: only one run per bot at a time (job claim with `FOR UPDATE SKIP LOCKED`).
 - Runs are idempotent and safe to retry.
 
-### Run Flow (Single Execution)
+### Run Flow (Single Execution) - SIMPLIFIED
 
-1) Worker picks up due bot (bots scheduled every 4 hours).
-2) Opens 5-minute decision window.
-3) Load bot config and status.
-4) Enforce global kill switch and bot pause status.
-5) Check daily AI cost cap.
-6) Polyseer pipeline invoked: Planner generates research strategy.
-7) Researcher Agent conducts PRO and CON research using Valyu API.
-8) Evidence is classified by quality (A/B/C/D).
-9) Critic Agent analyzes gaps and recommends follow-up research.
-10) Second research cycle if gaps identified.
-11) Analyst Agent performs Bayesian probability aggregation.
-12) Reporter Agent generates final analysis with pNeutral and pAware.
-13) System parses Polyseer output for trading decision.
-14) Fetch market data via pmxt for selected markets.
-15) Simulate FOK execution and compute fees/slippage via paper adapter.
-16) Run risk checks and record decision.
-17) Update positions and paper balance.
-18) Emit notifications if thresholds are met.
-19) Decision window closes (or earlier if no good opportunities).
+1. Worker picks up due bot (scheduled every 4 hours, or reactive trigger)
+2. Open 5-minute decision window
+3. Load bot config including **user strategy prompt** (advice)
+4. Enforce kill switch, pause status, daily AI cost cap
+5. **Decision Agent** analyzes market using tools:
+   - Query pmxt for market data (prices, order book)
+   - Query Pamela news service for signals
+   - **Optionally** invoke Polyseer for deep research (if uncertain/high-value)
+6. LLM synthesizes: user advice + research + market data + news
+7. Generate decision intent (BUY/SELL/HOLD with reasoning)
+8. Run risk checks (position size, daily loss, slippage)
+9. Simulate FOK execution via pmxt paper adapter
+10. Record decision, update positions, emit notifications
+11. Close decision window
+
+**Key Change**: Steps 6-12 from the old flow are now ONE Polyseer invocation (when needed), not our internal flow.
+
+## pmxt Integration
+
+**pmxt is our trading infrastructure** (github.com/pmxt-dev/pmxt).
+
+### What pmxt Provides
+
+- Unified API for **Polymarket + Kalshi** (and more)
+- Market data fetching (prices, order book, events)
+- Paper trading simulation
+- Future: Live trading with same API
+
+### How We Use pmxt
+
+```typescript
+import pmxt from "pmxtjs";
+
+// Initialize
+const exchange = new pmxt.Exchange();
+
+// Market data
+const events = await exchange.fetchEvents({ query: "Trump" });
+const market = events[0].markets.match("specific market");
+
+// Trading (paper mode for MVP)
+const order = await exchange.createOrder({
+  outcome: market.yes,
+  side: "buy",
+  type: "limit",
+  price: 0.33,
+  amount: 100,
+});
+```
+
+### Why pmxt?
+
+- **Don't build custom Polymarket integration** - 650 stars, actively maintained
+- Supports both markets we need (Polymarket + Kalshi)
+- Same API for paper and live trading (easy to switch later)
+- Handles order book walking, fees, execution
+
+## User Advice Integration
+
+The bot listens to user trading advice through a **strategy prompt**.
+
+### Strategy Prompt
+
+```typescript
+interface BotConfig {
+  strategyPrompt: string; // User's trading philosophy/advice
+  // Example: "Focus on political markets. Avoid sports.
+  //           Risk 2% per trade. Prefer high-confidence setups.
+  //           Exit if news sentiment turns negative."
+}
+```
+
+### How It's Used
+
+```typescript
+// In Decision Agent
+const systemPrompt = `
+You are a prediction market trading assistant. 
+
+USER'S TRADING STRATEGY:
+${botConfig.strategyPrompt}
+
+CURRENT PORTFOLIO:
+${portfolioSummary}
+
+MARKET CONTEXT:
+${marketData}
+
+RESEARCH (from Polyseer):
+${researchResults}
+
+Make a trading decision that aligns with the user's strategy.
+`;
+
+const decision = await llm.generate(systemPrompt);
+```
+
+### Chat Interface
+
+Users can:
+
+- Ask "Why did you trade X?" → Agent explains decision using logged reasoning
+- Say "Be more aggressive" → Updates strategy prompt
+- Ask "What do you think about market Y?" → Agent researches + gives opinion
+- Trigger "Run analysis now" → Immediate bot run
 
 ## ExecutionAdapter
 
@@ -185,6 +272,7 @@ Polyseer uses Valyu for comprehensive market research:
 - **Search Seeds**: Generated by Planner Agent based on market questions
 
 API key management:
+
 - Valyu API key required for agent research capabilities
 - Configured at deployment level (not per-user)
 
@@ -228,13 +316,13 @@ Polyseer's Reporter Agent outputs:
 
 Policy checks run in this order:
 
-1) Bot status is active and not paused.
-2) Daily AI cost cap not exceeded.
-3) Max trades per day not exceeded.
-4) Max daily loss not exceeded.
-5) Max position size not exceeded.
-6) Slippage threshold not exceeded.
-7) Paper balance sufficient (including fees).
+1. Bot status is active and not paused.
+2. Daily AI cost cap not exceeded.
+3. Max trades per day not exceeded.
+4. Max daily loss not exceeded.
+5. Max position size not exceeded.
+6. Slippage threshold not exceeded.
+7. Paper balance sufficient (including fees).
 
 Malformed LLM response policy:
 
@@ -357,11 +445,11 @@ Indexes:
 
 ## Telegram Linking (Phone + OTP)
 
-1) User initiates linking in app and enters phone number.
-2) App generates one-time token and displays Telegram deep link.
-3) User opens bot, submits token.
-4) Bot sends OTP via Telegram message.
-5) User enters OTP in app to complete linking.
+1. User initiates linking in app and enters phone number.
+2. App generates one-time token and displays Telegram deep link.
+3. User opens bot, submits token.
+4. Bot sends OTP via Telegram message.
+5. User enters OTP in app to complete linking.
 
 Telegram is read-only in MVP.
 
