@@ -223,6 +223,38 @@ export type OrderInput = {
 - Never signs or submits live orders.
 - Integrates with pmxt's paper trading mode.
 
+### Trade Execution Atomicity
+
+**Database-First Pattern:**
+1. Insert trade intent with `idempotency_key` (pending status)
+2. Execute pmxt paper trading API
+3. Update trade + positions in single transaction
+
+**Idempotency Key:** `trade:{run_id}:{sequence}`
+- Unique constraint on `trade_logs.idempotency_key`
+- If retry with same key → returns cached result
+
+**Crash Recovery (Reconciler):**
+- Runs every minute via cron
+- Finds trades `status='pending'` for >5 minutes
+- Queries pmxt API: "Did this trade execute?"
+- If yes: Replays position update, marks executed
+- If no: Marks failed or retries
+
+**Atomic Updates:**
+```sql
+BEGIN;
+  UPDATE trade_logs SET status='executed', ... WHERE id=$1;
+  UPDATE positions SET total_shares=..., closed_at=... WHERE id=$2;
+COMMIT;
+```
+
+**Worker crash scenarios:**
+- Pre-DB: Nothing recorded, safe to retry
+- Post-DB intent: Reconciler recovers
+- Post-API call: Reconciler recovers state from pmxt
+- Post-transaction: Already complete
+
 ### Live Adapter (Future)
 
 - Present but disabled.
@@ -522,20 +554,26 @@ Indexes:
 
 ## Telegram Linking (Deep Link + Contact)
 
-1. User taps "Connect Telegram" in app during onboarding.
-2. App generates one-time link token (expires in 10 minutes) and opens deep link:
-   `https://t.me/PolymancerBot?start=LINK_TOKEN`
-3. User taps "Start" in Telegram bot.
-4. Bot sends "Please tap 'Share Contact' to link your account" with contact button.
-5. User taps contact button → Telegram shares verified phone number.
-6. Bot stores mapping: `telegram_user_id` + `phone_e164` → `user_id`.
-7. App polls linking status and shows confirmation.
+**Flow:**
+1. User taps "Connect Telegram" in app
+2. App generates link token (10 min expiry) → deep link: `https://t.me/PolymancerBot?start=TOKEN`
+3. User taps Start in Telegram → bot requests contact share
+4. User taps "Share Contact" → Telegram provides verified `phone_e164`
+5. Bot links: `telegram_user_id` + `phone_e164` → `user_id`
+6. App polls `GET /telegram/link-status?token=TOKEN` for completion
 
-**Why this works:**
-- No SMS provider needed
-- Phone number is verified by Telegram
-- One-tap linking experience
-- Phone used for trial gating (one trial per phone)
+**Implementation Details:**
+- Token: `crypto.randomBytes(32)` hashed with SHA-256, stored as hash only
+- Rate limit: 5 tokens per user per hour
+- Contact verification: Check `contact.user_id === message.from.id` (prevents spoofing)
+- Phone format: E.164 from Telegram (e.g., `+14155552671`), strip `+` for storage
+- Edge cases:
+  - Token expired: Return 410, prompt regenerate
+  - Token used: Return 409, already linked
+  - No contact shared: Bot re-sends contact button on `/start`
+  - Wrong user: Reject if phone doesn't match expected user
+
+**Storage:** `telegram_links` table with `link_token` (hashed), `link_expires_at`, `phone_e164`
 
 ## Kill Switch
 
@@ -566,6 +604,28 @@ Emergency stop for all trading activity.
 - $19.99/month.
 - Webhook updates `tier`, `entitlement_status`, `entitlement_expires_at`, and `entitlement_product_id`.
 - No free tier in MVP, but schema should allow it.
+
+### Webhook Security
+
+**Important:** RevenueCat does NOT provide signature verification (no HMAC like Stripe).
+
+**Required security measures:**
+1. **Validate Authorization header**: Bearer token matches `REVENUECAT_WEBHOOK_SECRET`
+2. **Idempotency**: Store `event.id` in `processed_webhooks` table, reject duplicates
+3. **Schema validation**: Use TypeBox to validate payload structure
+4. **User verification**: Always check `event.app_user_id` exists before processing
+
+**Table:**
+```sql
+CREATE TABLE processed_webhooks (
+  event_id VARCHAR(255) PRIMARY KEY,
+  processed_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Endpoint:** `POST /webhooks/revenuecat`
+- Return 200 OK immediately
+- Process asynchronously if needed
 
 ## API Surface (MVP)
 

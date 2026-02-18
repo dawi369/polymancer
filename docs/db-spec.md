@@ -392,6 +392,24 @@ Global operational settings (kill switch, maintenance mode, etc.).
 
 ---
 
+## Table: processed_webhooks
+
+RevenueCat webhook idempotency tracking.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| event_id | varchar(255) | pk | RevenueCat event.id |
+| processed_at | timestamptz | default now | When processed |
+
+### Indexes
+- `processed_webhooks(event_id)` - primary key
+
+### RLS
+- Service role can read/write
+- Users cannot access
+
+---
+
 ## Job Queue Pattern
 
 The `runs` table serves as the job queue. A scheduler enqueues scheduled runs based on `bots.next_run_at`.

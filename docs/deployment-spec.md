@@ -42,6 +42,17 @@ Emergency stop for all trading. See `docs/tech-spec.md` for implementation.
 - Protected by admin bearer token
 - Persists until explicitly disabled
 
+## Scheduled Jobs (Cron)
+
+**Reconciler:** Runs every minute via cron
+- Scans `trade_logs` for `status='pending'` >5 minutes old
+- Queries pmxt API for trade status
+- Recovers crashed trades or marks failed
+
+**Daily Cost Reset:** Worker handles this per-bot at run start (see `docs/tech-spec.md`)
+
+**Chat Retention:** Purges `chat_messages` older than 90 days (daily)
+
 ## Observability and Ops
 
 - Structured JSON logs for each run and decision.
