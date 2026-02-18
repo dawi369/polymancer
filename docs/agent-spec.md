@@ -33,7 +33,7 @@ For system-level components and boundaries, see `docs/architecture.md`.
 - pmxt market data and execution tool (external SDK)
 - Pamela news pipeline (ported)
 - Portfolio and trade history access
-- Chat interface for user interaction
+- Telegram chat interface for user interaction
 
 ### Outputs
 - Decision intent (BUY/SELL/HOLD) with sizing and reasoning
@@ -76,7 +76,7 @@ Signals are used to trigger reactive runs.
 Sources:
 - News ingestion (ported from Pamela NewsService)
 - Market movement (price and liquidity changes)
-- User-triggered runs (chat)
+- User-triggered runs (Telegram)
 
 Signal scoring:
 - Each signal outputs `score` and `reason`
@@ -167,7 +167,7 @@ If any threshold is met:
 
 ### User-Triggered Runs
 
-- Chat command "run now" enqueues a run
+- Telegram command "run now" enqueues a run
 - If a run is already in progress, the request is queued
 
 ## MVP Execution Model
@@ -203,14 +203,18 @@ Provider (MVP):
 
 ## Chat Capabilities (24/7)
 
+Primary user interaction happens in Telegram; the mobile app is a control hub only (no in-app chat for MVP).
+
 Allowed interactions:
 - General market questions
 - "Why did you trade X?"
 - "What do you think about market Y?"
+- "Here is a trade idea, analyze it."
 - "Run analysis now"
 
 Behavior rules:
 - Use smaller model for casual chat if needed
+- No mobile app chat in MVP
 - Use Decision Agent for anything involving trades
 - Use Polyseer only when a decision requires deep evidence
 

@@ -7,6 +7,7 @@ This document defines the complete database schema for the MVP.
 - **Database**: Supabase PostgreSQL
 - **Auth**: Supabase Auth (Apple, Google OAuth)
 - **RLS**: Row-level security enabled on all tables
+- **Time**: All timestamps stored in UTC; `users.timezone` is used for notification scheduling only
 
 ## Table: users
 

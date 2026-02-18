@@ -4,7 +4,8 @@ This document defines technical implementation details for the MVP. Product scop
 
 ## System Components
 
-- Mobile app: Expo (UI only, no trading logic).
+- Mobile app: Expo control hub (no chat, no trading logic).
+- Telegram bot: primary user interaction channel (chat, analysis, trade suggestions).
 - Backend API: Bun + Elysia on Fly.io (fast, user-facing HTTP).
 - Worker: Bun process on Fly.io (long-running, handles bot execution).
 - Polyseer: Research pipeline invoked by Worker (not a scheduled daemon).
@@ -265,11 +266,15 @@ No partial fills are recorded.
 
 ### users
 
-- id (uuid, pk)
-- email (text)
-- tier (text)
-- timezone (text)
-- notifications_enabled (bool)
+- id (uuid, pk) - Supabase auth user ID
+- phone_e164 (text, unique) - Normalized E.164 phone number (for trial gating)
+- phone_hash (text) - SHA-256 hash of phone for display
+- tier (text, default 'trial') - 'trial', 'paid'
+- trial_started_at (timestamptz)
+- trial_ends_at (timestamptz)
+- timezone (text, default 'UTC')
+- notifications_enabled (bool, default true)
+- telegram_linked_at (timestamptz)
 - created_at, updated_at
 
 Auth: Apple and Google OAuth only via Supabase Auth.
@@ -277,23 +282,49 @@ Auth: Apple and Google OAuth only via Supabase Auth.
 ### bots
 
 - id (uuid, pk)
-- user_id (uuid, unique)
-- status (paper, paused)
-- model_id (text)
-- strategy_prompt (text)
-- max_daily_loss_usd (numeric)
-- max_position_size_usd (numeric)
-- max_trades_per_day (int)
-- slippage_threshold_percent (numeric)
-- daily_ai_cost_usd (numeric)
-- daily_ai_limit_usd (numeric)
+- user_id (uuid, unique, fk → users.id)
+- status (text, default 'paused') - 'active', 'paused', 'error'
+- model_id (text) - LLM model to use
+- strategy_prompt (text) - Custom instructions for the bot
+- max_daily_loss_usd (numeric, default 100)
+- max_position_size_usd (numeric, default 200)
+- max_trades_per_day (int, default 10)
+- slippage_threshold_percent (numeric, default 2)
+- daily_ai_cost_usd (numeric, default 0) - Running total today
+- daily_ai_limit_usd (numeric, default 0.50)
+- next_run_at (timestamptz) - When bot is next due
+- run_interval_hours (int, default 4)
+- decision_window_seconds (int, default 300)
 - last_run_at (timestamptz)
+- last_run_status (text) - 'success', 'failed', 'partial'
 - created_at, updated_at
+
+### runs
+
+Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKED`.
+
+- id (uuid, pk)
+- bot_id (uuid, fk)
+- status (pending, claimed, running, completed, failed)
+- claimed_by (text) - Worker instance ID
+- claimed_at (timestamptz)
+- started_at (timestamptz)
+- completed_at (timestamptz)
+- decision_window_started_at (timestamptz)
+- decision_window_ends_at (timestamptz)
+- input_params (jsonb) - Market IDs, research params
+- output_result (jsonb) - Final decision, positions, P&L
+- error_message (text)
+- retry_count (int, default 0)
+- idempotency_key (uuid, unique)
+- created_at
 
 ### trade_logs
 
+Every trading decision (including HOLD and REJECTED).
+
 - id (uuid, pk)
-- execution_id (uuid, unique)
+- run_id (uuid, fk → runs.id)
 - bot_id (uuid, fk)
 - action (buy, sell, hold, rejected)
 - execution_status (pending, executed, failed)
@@ -309,9 +340,8 @@ Auth: Apple and Google OAuth only via Supabase Auth.
 - rejection_reason (text)
 - error_message (text)
 - order_book_snapshot (jsonb, top 5 levels)
+- idempotency_key (uuid, unique)
 - created_at
-
-Every decision is logged, including HOLD and REJECTED.
 
 ### positions
 
@@ -334,33 +364,70 @@ Every decision is logged, including HOLD and REJECTED.
 
 ### bot_failures
 
+AI or execution failures for diagnostics.
+
 - id (uuid, pk)
 - bot_id (uuid, fk)
-- error_type (text)
+- run_id (uuid, fk) - nullable
+- error_type (text) - 'ai_failure', 'execution_failure', 'rate_limit', 'external_api'
 - error_message (text)
+- context (jsonb)
 - created_at
 
 ### telegram_links
 
+Telegram account linking.
+
 - id (uuid, pk)
 - user_id (uuid, fk, unique)
 - telegram_user_id (text, unique)
-- phone_hash (text)
-- phone_last4 (text)
+- phone_hash (text) - Hash from Telegram
+- phone_last4 (text) - Last 4 digits
 - linked_at (timestamptz)
-- status (linked, pending)
+- status (text, default 'pending') - 'pending', 'linked'
+- otp_code (text) - Current OTP (hashed)
+- otp_expires_at (timestamptz)
+
+### daily_summaries
+
+Cached daily summary for notifications (denormalized).
+
+- id (uuid, pk)
+- bot_id (uuid, fk)
+- date (date)
+- summary_text (text) - Generated summary
+- pnl_change_usd (numeric) - P&L for the day
+- trades_count (int)
+- positions_count (int)
+- generated_at (timestamptz)
 
 Indexes:
 
+- users(phone_e164) - unique, for trial gating
+- bots(user_id) - unique
+- bots(next_run_at) - for worker polling
+- runs(bot_id) - for looking up bot history
+- runs(status, created_at desc) - for admin queries
+- runs(idempotency_key) - unique, for deduplication
 - trade_logs(bot_id, created_at desc)
-- positions(bot_id, market_id, token unique)
-- bots(user_id unique)
+- trade_logs(run_id) - for linking to runs
+- trade_logs(idempotency_key) - unique, for deduplication
+- positions(bot_id, market_id, token) - unique composite
+- paper_sessions(bot_id) - for history
+- bot_failures(bot_id, created_at desc) - for diagnostics
+- daily_summaries(bot_id, date) - unique
 
 ## Auth and RLS
 
 - Supabase Auth with Apple and Google only.
 - RLS: users read their own rows; backend service role writes trade logs and positions.
 - No client access to service role or trading internals.
+
+## Onboarding and Phone Verification
+
+- Users sign in with Apple or Google via Supabase Auth.
+- During onboarding, the app collects a phone number and verifies via OTP.
+- Verified phone number is stored as `users.phone_e164` and used for trial gating.
 
 ## Telegram Linking (Phone + OTP)
 
@@ -370,11 +437,14 @@ Indexes:
 4. Bot sends OTP via Telegram message.
 5. User enters OTP in app to complete linking.
 
+Note: This OTP is for Telegram linking only. App phone verification happens during onboarding.
+
 Telegram is read-only in MVP.
 
 ## Notifications
 
 - 9am daily summary (local time).
+- All timestamps are stored in UTC; `users.timezone` is used only for notification scheduling.
 - Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change.
 - Large position change threshold: TBD.
 
@@ -392,10 +462,9 @@ Public endpoints (authenticated):
 
 - GET /me
 - GET /bot
-- PATCH /bot
-- POST /bot/pause
-- POST /bot/resume
+- PATCH /bot (update config, including status: active/paused)
 - POST /bot/reset-paper
+- GET /runs (bot execution history)
 - GET /trade-logs
 - GET /positions
 - POST /telegram/link
@@ -434,5 +503,4 @@ Internal endpoints:
 - Valyu API rate limits and cost estimation.
 - Caching strategy and TTL values.
 - Large position change threshold.
-- Polyseer schedule cadence configuration.
 - Web UI surface for future release.

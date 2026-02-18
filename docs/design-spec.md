@@ -1,6 +1,6 @@
 # Polymancer MVP Design Spec
 
-## Moto
+## Motto
 
 Summon your 24/7 Polymarket trader.
 
@@ -23,6 +23,7 @@ Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading ag
 ## Non-Goals (MVP)
 
 - Live trading or custody of user keys.
+- In-app chat.
 - Web UI (backend should be reusable later).
 - Redis or heavy caching layers.
 - Partial fills (FOK only).
@@ -40,7 +41,9 @@ Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading ag
 - Full market universe; limit AI context to 50 markets per run.
 - RevenueCat paid-only with 7-day trial ($19.99/month).
 - Trial gated by phone number (unique E.164 normalized).
-- Telegram is monitoring and Q/A only; configuration happens in the app.
+- Mobile app is the control hub (rules, constraints, billing, status).
+- Telegram is the primary interaction channel for chat, analysis, and trade suggestions.
+- No configuration changes via Telegram.
 - Bot runs on a 4-hour cycle with a 5-minute decision window.
 
 ## Architecture Overview
@@ -64,6 +67,8 @@ Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
 
 Detailed component boundaries are in `docs/architecture.md`.
 Agent behavior, data contracts, and scheduling rules are in `docs/agent-spec.md`.
+Database schema and data model are in `docs/db-spec.md`.
+Technical implementation details are in `docs/tech-spec.md`.
 
 ### Hosting
 
@@ -103,14 +108,22 @@ Additional policies:
 
 ## Notifications
 
-- 9am daily summary (local time).
+- 9am daily summary (local time using stored timezone).
+- All scheduling and timestamps use UTC.
 - Alert on: bot paused, daily loss hit, repeated errors, market resolution, large position change.
 
 ## Telegram
 
 - Phone number link to app account.
-- Read-only queries and status updates.
+- Primary interaction channel for chat, analysis, and trade suggestions.
 - No configuration changes via Telegram.
+
+## Onboarding Flow
+
+- Sign in with Apple or Google.
+- Intro/onboarding screens.
+- Collect phone number and verify via OTP after explaining telegram 24/7 capability.
+- Proceed to bot setup and activation.
 
 ## Billing (RevenueCat)
 

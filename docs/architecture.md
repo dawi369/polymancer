@@ -2,25 +2,27 @@
 
 This document describes the system-level components, boundaries, and integration points.
 For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.md`.
+For database schema and data model, see `docs/db-spec.md`.
+For technical implementation details, see `docs/tech-spec.md`.
 
 > **note**: all files are subject to change slightly as the project continues development, we must always update all docs accordingly
 
 ## Overview
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                     USER INTERFACE                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
-│  │  Mobile App  │  │  Telegram    │  │  Chat UI     │        │
-│  │   (Expo)     │  │    Bot       │  │  (Real-time) │        │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘        │
-└─────────┼─────────────────┼─────────────────┼────────────────┘
-          │                 │                 │
-          └─────────────────┼─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     USER INTERFACE                          │
+│  ┌──────────────┐  ┌──────────────┐                         │
+│  │  Mobile App  │  │  Telegram    │                         │
+│  │ (Control Hub)│  │    Bot       │                         │
+│  └──────┬───────┘  └──────┬───────┘                         │
+└─────────┼─────────────────┼─────────────────────────────────┘
+          │                 │
+          └─────────────────┼
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
 │                    API LAYER (Bun + Elysia)                  │
-│  - Real-time chat handling                                   │
+│  - Telegram chat handling (primary interaction)              │
 │  - User authentication (Supabase Auth)                       │
 │  - Bot configuration (strategy prompts, rules, constraints)  │
 │  - Webhooks (RevenueCat, Telegram)                           │
@@ -52,11 +54,13 @@ For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.m
 └──────────────────────────────────────────────────────────────┘
 ```
 
+Web UI is not part of the MVP; future scope is TBD.
+
 ## Components and Boundaries
 
 ### API Layer
 
-- Handles chat, auth, and user configuration
+- Handles Telegram chat, auth, and user configuration
 - Enforces access control and rate limits
 - Exposes endpoints for bot control
 
@@ -101,11 +105,11 @@ https://github.com/theSchein/pamela
 ### Data Store and Notifications
 
 - Supabase for auth, data, and job queue
-- Expo Push and Telegram for notifications
+- Expo Push for summaries/alerts, Telegram for chat
 
 ## Control Flow (High Level)
 
-1. User input arrives via mobile or Telegram
+1. User input arrives via Telegram; mobile app updates config
 2. API loads bot config and strategy prompt
 3. Worker runs Decision Agent with tool context
 4. Optional Polyseer research for uncertain or high-value trades
@@ -124,6 +128,7 @@ polymancer/
 │   │   └── package.json        # depends on: pmxtjs, @polymancer/agent-core
 │   └── mobile/                 # Expo app (UI only)
 │       └── package.json        # depends on: @polymancer/database
+│                               # name: @polymancer/mobile
 ├── packages/
 │   ├── agent-core/             # Decision Agent (our code)
 │   ├── polyseer/               # Git submodule: github.com/yorkeccak/Polyseer
