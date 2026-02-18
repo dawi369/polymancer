@@ -29,6 +29,7 @@
       "package": "ai.polymancer"
     },
     "web": {
+      "bundler": "metro",
       "output": "static",
       "favicon": "./assets/ios-master.png"
     },
@@ -44,7 +45,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     },
     "extra": {
