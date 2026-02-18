@@ -148,11 +148,3 @@ All decisions (including HOLD and REJECTED) are logged.
 ## Observability and Safety
 
 - Hard guardrail: live adapter disabled in MVP.
-
-## Future (Post-MVP)
-
-- Redis/TTL caching for market data via pmxt.
-- Web dashboard using the same backend.
-- Live trading after legal review (pmxt live adapter).
-- Kalshi support via pmxt SDK.
-- Enhanced Valyu research capabilities.

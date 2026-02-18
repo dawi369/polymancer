@@ -54,7 +54,7 @@ For technical implementation details, see `docs/tech-spec.md`.
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Web UI is not part of the MVP; future scope is TBD.
+Web UI is not part of the MVP. See `docs/post-mvp-spec.md`.
 
 ## Components and Boundaries
 
@@ -77,6 +77,7 @@ Polyseer link:
 https://github.com/yorkeccak/Polyseer
 
 **Strategy:** Fork + Submodule
+
 1. Fork `yorkeccak/Polyseer` to `yourname/Polyseer`
 2. Add YOUR fork as submodule: `packages/polyseer`
 3. Pin to specific commit/tag
@@ -122,16 +123,19 @@ https://github.com/theSchein/pamela
 **Hosting:** Upstash ($10/mo fixed plan) via Fly.io integration
 
 **Queues:**
+
 - `telegram:messages` - Incoming Telegram messages
 - `notifications` - Expo push notifications
 - `background` - Reconciler, cleanup jobs
 
 **Worker Architecture:**
+
 - Separate Fly.io app (`apps/worker`) consuming from Redis
 - BullMQ blocking commands (no polling, automatic job distribution)
 - Scale by increasing worker instance count
 
 **Flow:**
+
 1. API receives webhook → validates → enqueues → returns 200
 2. Worker processes queue items asynchronously
 3. Failed items retry with exponential backoff
@@ -168,6 +172,7 @@ polymancer/
 ```
 
 **Dependency Notes:**
+
 - `pmxt` is installed via `bun add pmxtjs@2.8.0` (locked to v2.8.0)
 - `polyseer` is a git submodule from your fork (not directly from upstream)
 
@@ -176,3 +181,7 @@ polymancer/
 - `docs/agent-spec.md` for agent behavior, data contracts, and scheduling
 - `docs/tech-spec.md` for integration details and implementation notes
 - `docs/deployment-spec.md` for hosting and ops
+
+## Future
+
+See `docs/post-mvp-spec.md` for full roadmap.

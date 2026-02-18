@@ -255,11 +255,9 @@ COMMIT;
 - Post-API call: Reconciler recovers state from pmxt
 - Post-transaction: Already complete
 
-### Live Adapter (Future)
+### Live Adapter
 
-- Present but disabled.
-- Hard error if called while `LIVE_TRADING_ENABLED=false`.
-- Will use pmxt's live trading capabilities with proper credentials.
+See `docs/post-mvp-spec.md` for future trading capabilities.
 
 ## Market Data Provider
 
@@ -723,6 +721,4 @@ See `docs/deployment-spec.md` for hosting, secrets, rate limits, and operational
 
 ## Open Items (TBD)
 
-- Valyu API rate limits and cost estimation.
-- Caching strategy and TTL values. <!-- Post-MVP: Redis/TTL caching for market data -->
-- Web UI surface for future release. <!-- Post-MVP: Web dashboard -->
+See `docs/post-mvp-spec.md` for full roadmap.
