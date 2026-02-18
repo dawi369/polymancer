@@ -274,9 +274,49 @@ COMMIT;
 
 - Primary research: Valyu API (Deep Search + Web Search) via Polyseer agents.
 - Decision making: OpenRouter for final trading decisions.
-- Models: cost-efficient by default.
 - Daily cost cap: $0.50 per bot (combined Valyu + OpenRouter).
 - Track cost per run and aggregate daily.
+
+### Model Selection
+
+Different contexts require different model qualities:
+
+| Context | Purpose | Default Model |
+|---------|---------|---------------|
+| messaging | Telegram chat | minimax/minimax-m2.5 |
+| research | Polyseer/news analysis | minimax/minimax-m2.5 |
+| trading | Trading decisions | minimax/minimax-m2.5 |
+| summarization | Daily summaries | minimax/minimax-m2.5 |
+
+**Fallback:** deepseek/deepseek-v3.2 for all contexts
+
+**Selection Logic:**
+```typescript
+async function getModelForContext(botId: string, context: string): Promise<string> {
+  // 1. Check user override
+  const override = await db.botModelConfigs.find({ bot_id: botId, context });
+  if (override?.model_id) return override.model_id;
+
+  // 2. Get user's tier
+  const user = await db.users.find({ id: botId.user_id });
+  
+  // 3. Get tier default
+  const default = await db.tierModelDefaults.find({ 
+    tier: user.tier, 
+    context 
+  });
+  
+  return default.model_id;
+}
+```
+
+**Fallback Chain:**
+- If primary model fails (rate limit, error), try `fallback_model_id`
+- If fallback fails, return error (no further fallback)
+
+**Tables:**
+- `tier_model_defaults` - Tier-level defaults (trial/paid)
+- `bot_model_configs` - User overrides (nullable = use tier default)
 
 ## News Signals (MVP Storage)
 
@@ -367,7 +407,7 @@ Auth: Apple and Google OAuth only via Supabase Auth.
 - id (uuid, pk)
 - user_id (uuid, unique, fk → users.id)
 - status (text, default 'paused') - 'active', 'paused', 'error'
-- model_id (text) - LLM model to use
+- Model selection via `tier_model_defaults` + `bot_model_configs` (see below)
 - strategy_prompt (text) - Custom instructions for the bot
 - max_daily_loss_usd (numeric, default 100)
 - max_position_size_usd (numeric, default 200)

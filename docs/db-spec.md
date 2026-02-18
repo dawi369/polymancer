@@ -36,6 +36,7 @@ Primary user record linked to Supabase Auth.
 - `users(id)` - primary key
 - `users(phone_e164)` - unique, for trial gating
 - `users(revenuecat_app_user_id)` - unique
+- `users(deleted_at)` - for querying active users
 
 ### RLS
 - Users can read/update their own row
@@ -293,7 +294,7 @@ Telegram account linking.
 | phone_hash | text | | Hash of phone for display |
 | linked_at | timestamptz | | When linked |
 | status | text | default 'pending' | 'pending', 'linked' |
-| link_token | text | unique | One-time token for deep link (expires 10 min) |
+| link_token | text | unique | One-time token for deep link (hashed, expires 10 min) |
 | link_expires_at | timestamptz | | When link token expires |
 
 ### Indexes
@@ -407,6 +408,58 @@ RevenueCat webhook idempotency tracking.
 ### RLS
 - Service role can read/write
 - Users cannot access
+
+---
+
+## Table: tier_model_defaults
+
+Default models per tier and context.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| tier | text | | 'trial', 'paid' |
+| context | text | | 'messaging', 'research', 'trading', 'summarization' |
+| model_id | text | | Default model ID |
+| fallback_model_id | text | | Fallback model if primary fails |
+| created_at | timestamptz | default now | |
+
+**Defaults (OpenRouter model IDs):**
+| tier | context | model_id | fallback_model_id |
+|------|---------|----------|------------------|
+| trial | messaging | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| trial | research | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| trial | trading | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| trial | summarization | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| paid | messaging | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| paid | research | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| paid | trading | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+| paid | summarization | minimax/minimax-m2.5 | deepseek/deepseek-v3.2 |
+
+### Indexes
+- `tier_model_defaults(tier, context)` - unique
+
+---
+
+## Table: bot_model_configs
+
+User overrides for specific contexts.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| bot_id | uuid | fk -> bots.id | |
+| context | text | | 'messaging', 'research', 'trading', 'summarization' |
+| model_id | text | | User-selected model |
+| fallback_model_id | text | nullable | Override fallback |
+| created_at | timestamptz | default now | |
+
+### Indexes
+- `bot_model_configs(bot_id, context)` - unique
+
+### RLS
+- Users can read/update their own bot configs
+- Service role can read/write all
 
 ---
 

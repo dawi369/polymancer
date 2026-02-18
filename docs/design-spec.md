@@ -95,6 +95,7 @@ Additional policies:
 
 ## Paper Balance and P&L History
 
+- Default paper balance: **$1,000 USD** on bot activation.
 - User can reset paper balance at any time.
 - Each reset starts a new paper session.
 - P&L history is preserved across sessions.
