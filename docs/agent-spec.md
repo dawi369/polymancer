@@ -170,22 +170,18 @@ If any threshold is met:
 - Chat command "run now" enqueues a run
 - If a run is already in progress, the request is queued
 
-## Concurrency and Scaling
+## MVP Execution Model
 
-Recommended defaults:
-- Max concurrent runs per Worker: 5
-- Max concurrent Polyseer calls per Worker: 3
+For MVP, use a single Worker instance that processes all bots sequentially:
+
+- One Worker handles all bot runs
+- Only one run per bot at a time (enforced by `FOR UPDATE SKIP LOCKED`)
+- Reactive triggers queue behind scheduled runs
+- Scaling decisions deferred until post-MVP
+
+Concurrency limits (MVP):
 - Max chat responses per user: 10 per minute
-
-Rationale:
-- Prevents API rate-limit spikes
-- Avoids CPU contention on a single node
-- Keeps response latency stable
-
-Scaling model:
-- Start with one Worker instance
-- Scale horizontally as runs increase
-- Use DB queue locking with `FOR UPDATE SKIP LOCKED`
+- Max concurrent Polyseer calls: 1 (sequential)
 
 ## News Pipeline (Port from Pamela)
 

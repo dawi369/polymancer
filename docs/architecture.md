@@ -3,6 +3,8 @@
 This document describes the system-level components, boundaries, and integration points.
 For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.md`.
 
+> **note**: all files are subject to change slightly as the project continues development, we must always update all docs accordingly
+
 ## Overview
 
 ```
@@ -66,6 +68,9 @@ For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.m
 
 ### Polyseer Integration
 
+Polyseer link:
+https://github.com/yorkeccak/Polyseer
+
 - External research tool (git submodule)
 - Inputs: market URL
 - Outputs: pNeutral, pAware, recommendation, evidence summary
@@ -73,11 +78,17 @@ For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.m
 
 ### pmxt Integration
 
+pmxt link:
+https://github.com/pmxt-dev/pmxt
+
 - External trading SDK (npm package `pmxtjs`)
 - Market data, order book, and execution abstraction
 - Used for paper trading in MVP
 
 ### Pamela News
+
+Pamela link:
+https://github.com/theSchein/pamela
 
 - Ported signal pipeline (NewsService, keyword extractor, confidence scoring)
 - Provides event-driven triggers and contextual signals

@@ -27,9 +27,9 @@ Polymancer is a paper-only MVP that lets non-technical users summon a 24/7 predi
 polymancer/
 ├── apps/
 │   ├── api/                # Bun + Elysia API
-│   │   └── depends on: pmxtjs (bun), @polymancer/agent-core
+│   │   └── depends on: pmxtjs (npm), @polymancer/agent-core
 │   ├── worker/             # Bun background worker
-│   │   └── depends on: pmxtjs (bun), @polymancer/agent-core
+│   │   └── depends on: pmxtjs (npm), @polymancer/agent-core
 │   └── mobile/             # Expo (React Native) app
 ├── packages/
 │   ├── agent-core/         # Decision Agent (our code)
@@ -38,8 +38,6 @@ polymancer/
 │   └── database/           # Supabase types/schema
 └── docs/                   # Documentation
 ```
-
-**Note**: `pmxt` is from bun (`pmxtjs`), not a local package. Install with `bun add pmxtjs`.
 
 ## Development
 
