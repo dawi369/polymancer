@@ -8,7 +8,8 @@
   "dependencies": {
     "@polymancer/database": "workspace:*",
     "@sinclair/typebox": "^0.34.48",
-    "elysia": "^1.4.25"
+    "elysia": "^1.4.25",
+    "pmxtjs": "^2.8.0"
   },
   "devDependencies": {
     "bun-types": "latest"

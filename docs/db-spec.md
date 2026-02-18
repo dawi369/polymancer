@@ -28,6 +28,7 @@ Primary user record linked to Supabase Auth.
 | timezone | text | default 'UTC' | User timezone for notifications |
 | notifications_enabled | bool | default true | Push notification preference |
 | telegram_linked_at | timestamptz | | When Telegram was linked |
+| deleted_at | timestamptz | nullable | Soft delete timestamp |
 | created_at | timestamptz | default now | |
 | updated_at | timestamptz | default now | |
 
@@ -59,6 +60,7 @@ One bot per user. Contains configuration and scheduling.
 | slippage_threshold_percent | numeric | default 2 | |
 | daily_ai_cost_usd | numeric | default 0 | Running total today |
 | daily_ai_limit_usd | numeric | default 0.50 | |
+| daily_cost_reset_at | timestamptz | | Last time daily cost was reset |
 | next_run_at | timestamptz | | When bot is next due |
 | run_interval_hours | int | default 4 | How often to run |
 | decision_window_seconds | int | default 300 | 5-minute decision window |
@@ -126,7 +128,7 @@ For news triggers, detailed article refs live in `runs.input_params`; signal eve
 | bot_id | uuid | fk -> bots.id | |
 | signal_type | text | | 'news', 'price', 'liquidity', 'volume' |
 | score | numeric | | Trigger score |
-| reason | text | | Short reason |
+| reason | varchar(500) | | Short reason (max 500 chars) |
 | window_start | timestamptz | | Window start (UTC) |
 | window_end | timestamptz | | Window end (UTC) |
 | status | text | default 'new' | 'new', 'queued', 'ignored' |
@@ -194,11 +196,32 @@ Current paper holdings per market.
 | token | text | | 'yes' or 'no' |
 | total_shares | numeric | | Number of shares held |
 | average_entry_price | numeric | | Weighted average entry |
+| closed_at | timestamptz | nullable | Set when position reaches zero shares |
 | updated_at | timestamptz | default now | |
 
 ### Indexes
 - `positions(id)` - primary key
 - `positions(bot_id, market_id, token)` - unique composite
+
+### Atomic Position Updates
+
+Use atomic SQL updates with row-level locking:
+
+```sql
+-- Update position with locking
+UPDATE positions
+SET 
+  total_shares = total_shares + $new_shares,
+  average_entry_price = 
+    CASE 
+      WHEN total_shares + $new_shares = 0 THEN 0
+      ELSE ((total_shares * average_entry_price) + ($new_shares * $price)) / (total_shares + $new_shares)
+    END,
+  closed_at = CASE WHEN total_shares + $new_shares = 0 THEN NOW() ELSE NULL END,
+  updated_at = NOW()
+WHERE id = $position_id
+RETURNING *;
+```
 
 ### RLS
 - Users can read their own positions
@@ -266,17 +289,19 @@ Telegram account linking.
 | id | uuid | pk | |
 | user_id | uuid | fk -> users.id, unique | |
 | telegram_user_id | text | unique | Telegram user ID |
-| phone_hash | text | | Hash from Telegram |
-| phone_last4 | text | | Last 4 digits |
+| phone_e164 | text | unique | Phone from Telegram Contact (E.164) |
+| phone_hash | text | | Hash of phone for display |
 | linked_at | timestamptz | | When linked |
 | status | text | default 'pending' | 'pending', 'linked' |
-| otp_code | text | | Current OTP (hashed) |
-| otp_expires_at | timestamptz | | When OTP expires |
+| link_token | text | unique | One-time token for deep link (expires 10 min) |
+| link_expires_at | timestamptz | | When link token expires |
 
 ### Indexes
 - `telegram_links(id)` - primary key
 - `telegram_links(user_id)` - unique
 - `telegram_links(telegram_user_id)` - unique
+- `telegram_links(link_token)` - unique, for deep link lookups
+- `telegram_links(phone_e164)` - unique, for trial gating
 
 ### RLS
 - Users can read their own link
@@ -307,7 +332,14 @@ Telegram chat history (rolling retention).
 - Users can read their own messages
 - Service role can read/write all
 
-Retention: keep 90 days, purge older rows via scheduled job.
+Retention: keep 90 days, purge older rows via cron job.
+
+**Soft Delete Pattern:**
+Users table uses `deleted_at` for soft deletes. On account closure:
+- Set `users.deleted_at = NOW()`
+- Bot continues running until trial expires (if active)
+- Telegram link preserved for audit trail
+- Data retained indefinitely (compliance)
 
 ---
 
@@ -333,6 +365,30 @@ Cached daily summary for notifications (denormalized).
 ### RLS
 - Users can read their own summaries
 - Service role can read/write all
+
+---
+
+## Table: global_settings
+
+Global operational settings (kill switch, maintenance mode, etc.).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| key | text | unique | Setting name |
+| value | jsonb | | Setting value |
+| updated_at | timestamptz | default now | |
+
+### Settings
+- `kill_switch_enabled` (boolean) - When true, all trading pauses
+
+### Indexes
+- `global_settings(id)` - primary key
+- `global_settings(key)` - unique
+
+### RLS
+- Service role can read/write
+- Users cannot access
 
 ---
 
@@ -371,14 +427,26 @@ WHERE id = $bot_id;
 
 ## Cost Tracking
 
-Cost is tracked per bot per day:
+Cost is tracked per bot per day with idempotent resets to avoid race conditions:
 
-```sql
--- At start of new day (or via cron), reset daily cost
-UPDATE bots
-SET daily_ai_cost_usd = 0
-WHERE DATE(last_run_at) != DATE(NOW());
+**Required column:**
+Add `daily_cost_reset_at` (timestamptz) to `bots` table.
+
+**Worker logic at start of each run:**
+```typescript
+const startOfToday = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
+if (!bot.daily_cost_reset_at || bot.daily_cost_reset_at < startOfToday) {
+  await db.bots.update(bot.id, {
+    daily_ai_cost_usd: 0,
+    daily_cost_reset_at: new Date()
+  });
+}
 ```
+
+This ensures:
+- Correct reset even if bot was paused for multiple days
+- No race conditions from `last_run_at` comparisons
+- Idempotent (safe to run multiple times per day)
 
 ---
 
@@ -386,6 +454,7 @@ WHERE DATE(last_run_at) != DATE(NOW());
 
 All trade executions use idempotency keys:
 
-- Generated as UUID before execution
-- Stored in `trade_logs.idempotency_key` (unique constraint)
+- **Worker generates UUID** immediately before execution
+- Stored in `trade_logs.idempotency_key` (unique constraint prevents duplicates)
 - On retry, same key reuses previous result instead of creating duplicate
+- Idempotency window: 24 hours (keys older than 24h can be cleaned up)

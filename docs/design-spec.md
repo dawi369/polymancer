@@ -102,30 +102,32 @@ Additional policies:
 
 ## Notifications
 
-- 9am daily summary (local time using stored timezone).
-- All scheduling and timestamps use UTC.
-- Alert on: bot paused, daily loss hit, repeated errors, market resolution, large position change.
+- 9am daily summary (local time using `users.timezone`; all stored timestamps remain UTC).
+- Scheduler runs in UTC and computes local 9am for each user.
+- Alert on: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).
 
 ## Telegram
 
-- Phone number link to app account.
 - Primary interaction channel for chat, analysis, and trade suggestions.
+- Linked via deep link with one-time token + Contact sharing (no SMS OTP).
+- Phone number obtained from Telegram Contact used for trial gating.
 - No configuration changes via Telegram.
 
 ## Onboarding Flow
 
 - Sign in with Apple or Google.
-- Intro/onboarding screens.
-- Collect phone number and verify via OTP after explaining telegram 24/7 capability.
-- Proceed to bot setup and activation.
+- Intro/onboarding screens explaining Telegram 24/7 capabilities.
+- Connect Telegram via deep link (one-tap, no SMS).
+- Bot setup and activation.
+- Trial starts on bot activation.
 
 ## Billing (RevenueCat)
 
 - Paid-only with 7-day trial.
+- Trial gated by phone number from Telegram (unique per E.164 normalized number).
 - $19.99/month.
 - Same capabilities during trial as paid.
-- Trial gated by phone number: one trial per unique phone number (E.164 normalized).
-- Trial starts when phone is verified + bot is activated.
+- Trial starts when bot is activated.
 - Hard cutoff at day 7 (no grace period).
 - Reserve option to add free tier later.
 

@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@polymancer/database": "workspace:*"
+    "@polymancer/database": "workspace:*",
+    "pmxtjs": "^2.8.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

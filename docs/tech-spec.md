@@ -29,7 +29,8 @@ packages/shared             # Shared types and utilities
 Dependencies:
 
 - pmxt is an external npm package (`pmxtjs`), installed in apps/api and apps/worker
-- polyseer is a git submodule at packages/polyseer
+  - Locked to version `2.8.0` (MVP)
+- polyseer is a git submodule at packages/polyseer (forked to protect against upstream deletion)
 - All apps use workspace packages via `workspace:*` protocol
 
 ## Agent Architecture
@@ -136,10 +137,16 @@ class PolyseerResearchTool {
 
 ### Idempotency and Dedupe
 
+**Run Enqueue Idempotency:**
 - Scheduled runs: `idempotency_key` derived from `(bot_id, scheduled_for)` bucket.
 - Reactive runs: key from `signal_events.id`.
 - User runs: key from user request id.
 - On conflict, skip enqueue and keep existing run.
+
+**Trade Execution Idempotency:**
+- Worker generates UUID right before execution
+- Stored in `trade_logs.idempotency_key` (unique constraint prevents duplicates)
+- Same key reused on retry → no duplicate trade
 
 ## pmxt Integration
 
@@ -336,6 +343,7 @@ Auth: Apple and Google OAuth only via Supabase Auth.
 - slippage_threshold_percent (numeric, default 2)
 - daily_ai_cost_usd (numeric, default 0) - Running total today
 - daily_ai_limit_usd (numeric, default 0.50)
+- daily_cost_reset_at (timestamptz) - Last time daily cost was reset (for idempotent resets)
 - next_run_at (timestamptz) - When bot is next due
 - run_interval_hours (int, default 4)
 - decision_window_seconds (int, default 300)
@@ -397,7 +405,13 @@ Every trading decision (including HOLD and REJECTED).
 - token (yes, no)
 - total_shares (numeric)
 - average_entry_price (numeric)
+- closed_at (timestamptz, nullable) - Set when position reaches zero shares
 - updated_at
+
+**Position Updates:**
+- Use atomic SQL updates with row-level locking
+- When `total_shares` reaches 0, set `closed_at` instead of deleting
+- Soft-closed positions retained for P&L history
 
 ### paper_sessions
 
@@ -446,7 +460,7 @@ Reactive triggers used for dedupe and audit.
 - bot_id (uuid, fk)
 - signal_type (text) - 'news', 'price', 'liquidity', 'volume'
 - score (numeric)
-- reason (text)
+- reason (varchar(500)) - Short reason text (max 500 chars)
 - window_start (timestamptz)
 - window_end (timestamptz)
 - status (text) - 'new', 'queued', 'ignored'
@@ -506,58 +520,75 @@ Indexes:
 - RLS: users read their own rows; backend service role writes trade logs and positions.
 - No client access to service role or trading internals.
 
-## Onboarding and Phone Verification
+## Telegram Linking (Deep Link + Contact)
 
-- Users sign in with Apple or Google via Supabase Auth.
-- During onboarding, the app collects a phone number and verifies via OTP.
-- Verified phone number is stored as `users.phone_e164` and used for trial gating.
+1. User taps "Connect Telegram" in app during onboarding.
+2. App generates one-time link token (expires in 10 minutes) and opens deep link:
+   `https://t.me/PolymancerBot?start=LINK_TOKEN`
+3. User taps "Start" in Telegram bot.
+4. Bot sends "Please tap 'Share Contact' to link your account" with contact button.
+5. User taps contact button → Telegram shares verified phone number.
+6. Bot stores mapping: `telegram_user_id` + `phone_e164` → `user_id`.
+7. App polls linking status and shows confirmation.
 
-## Telegram Linking (Phone + OTP)
+**Why this works:**
+- No SMS provider needed
+- Phone number is verified by Telegram
+- One-tap linking experience
+- Phone used for trial gating (one trial per phone)
 
-1. User initiates linking in app and enters phone number.
-2. App generates one-time token and displays Telegram deep link.
-3. User opens bot, submits token.
-4. Bot sends OTP via Telegram message.
-5. User enters OTP in app to complete linking.
+## Kill Switch
 
-Note: This OTP is for Telegram linking only. App phone verification happens during onboarding.
+Emergency stop for all trading activity.
 
-Telegram is the primary interaction channel; configuration remains in the app.
+**Implementation:**
+- Stored in `global_settings` table with `kill_switch_enabled` boolean
+- Worker polls this flag at start of each run
+- When enabled: all runs immediately fail with "kill switch active"
+- Only accessible via protected admin endpoint
+
+**Endpoint:** `POST /admin/kill-switch`
+- Requires bearer token auth (admin only)
+- Body: `{ "enabled": true/false }`
+- Persists state until explicitly disabled
 
 ## Notifications
 
-- 9am daily summary (local time).
-- All timestamps are stored in UTC; `users.timezone` is used only for notification scheduling.
-- Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change.
-- Large position change threshold: TBD.
-- Scheduler runs in UTC and computes local 9am; `daily_summaries` is unique per bot per local date.
+- 9am daily summary (local time per `users.timezone`; all stored timestamps remain UTC).
+- Scheduler runs in UTC and computes local 9am for each user.
+- Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).
+- `daily_summaries` is unique per bot per local date.
 
 ## Billing (RevenueCat)
 
 - Paid-only with 7-day trial.
-- Trial gated by phone number (unique per E.164 normalized number).
+- Trial gated by phone number from Telegram (unique per E.164 normalized number).
 - $19.99/month.
 - Webhook updates `tier`, `entitlement_status`, `entitlement_expires_at`, and `entitlement_product_id`.
 - No free tier in MVP, but schema should allow it.
 
 ## API Surface (MVP)
 
-Public endpoints (authenticated):
+**Public endpoints (authenticated):**
 
 - GET /me
 - GET /bot
 - PATCH /bot (update config, including status: active/paused)
 - POST /bot/reset-paper (close current session, start new paper session)
 - GET /runs (bot execution history)
+  - Query: `?limit=50&cursor=<uuid>` (cursor-based pagination)
+  - Default limit: 50, max: 100
 - GET /trade-logs
+  - Query: `?limit=50&cursor=<uuid>` (cursor-based pagination)
+  - Default limit: 50, max: 100
 - GET /positions
-- POST /telegram/link
-- POST /telegram/verify
+- POST /telegram/link (initiate linking, returns deep link URL)
+- GET /telegram/link-status?token=<link_token> (poll for completion)
 
-Internal endpoints:
+**Internal endpoints:**
 
 - POST /webhooks/revenuecat
-- POST /admin/kill-switch
+- POST /admin/kill-switch (protected by admin bearer token)
 - GET /admin/health
 
 ## Deployment and Ops
@@ -566,8 +597,6 @@ See `docs/deployment-spec.md` for hosting, secrets, rate limits, and operational
 
 ## Open Items (TBD)
 
-- pmxt SDK version and feature set.
 - Valyu API rate limits and cost estimation.
-- Caching strategy and TTL values.
-- Large position change threshold.
-- Web UI surface for future release.
+- Caching strategy and TTL values. <!-- Post-MVP: Redis/TTL caching for market data -->
+- Web UI surface for future release. <!-- Post-MVP: Web dashboard -->

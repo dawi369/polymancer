@@ -15,9 +15,9 @@ Deployment and operational details for the MVP. Architecture, data model, and ag
 
 - OpenRouter (decision LLM).
 - Valyu API (Polyseer research).
-- pmxt SDK (market data + trading abstraction).
+- pmxt SDK v2.8.0 (market data + trading abstraction).
 - RevenueCat (billing webhooks).
-- Telegram Bot API (chat).
+- Telegram Bot API (chat + phone verification).
 - Expo Push (notifications).
 - NewsAPI (Pamela news source).
 
@@ -33,8 +33,16 @@ Deployment and operational details for the MVP. Architecture, data model, and ag
 - AI cost caps: see `docs/tech-spec.md`.
 - Backoff on pmxt/API errors.
 
+## Kill Switch
+
+Emergency stop for all trading. See `docs/tech-spec.md` for implementation.
+
+**Access:**
+- Endpoint: `POST /admin/kill-switch`
+- Protected by admin bearer token
+- Persists until explicitly disabled
+
 ## Observability and Ops
 
 - Structured JSON logs for each run and decision.
 - Health endpoint reports API + DB connectivity.
-- Kill switch to pause all bots.

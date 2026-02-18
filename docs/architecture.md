@@ -76,7 +76,15 @@ Web UI is not part of the MVP; future scope is TBD.
 Polyseer link:
 https://github.com/yorkeccak/Polyseer
 
-- External research tool (git submodule)
+**Strategy:** Fork + Submodule
+1. Fork `yorkeccak/Polyseer` to `yourname/Polyseer`
+2. Add YOUR fork as submodule: `packages/polyseer`
+3. Pin to specific commit/tag
+4. Periodically: `git subtree pull` updates from upstream
+
+**Why:** Protects against upstream deletion while allowing updates.
+
+- External research tool (git submodule from fork)
 - Inputs: market URL
 - Outputs: ForecastCard (pNeutral, pAware, drivers, audit, markdown report)
 - Invoked selectively based on uncertainty or trade value
@@ -132,13 +140,15 @@ polymancer/
 │                               # name: @polymancer/mobile
 ├── packages/
 │   ├── agent-core/             # Decision Agent (our code)
-│   ├── polyseer/               # Git submodule: github.com/yorkeccak/Polyseer
+│   ├── polyseer/               # Git submodule: your fork of Polyseer
 │   ├── pamela-core/            # Ported: News service + confidence scoring
 │   ├── database/               # Supabase types, schema, client
 │   └── shared/                 # Shared types, utilities, constants
 ```
 
-Note: `pmxt` is installed via `bun add pmxtjs` in apps that need it.
+**Dependency Notes:**
+- `pmxt` is installed via `bun add pmxtjs@2.8.0` (locked to v2.8.0)
+- `polyseer` is a git submodule from your fork (not directly from upstream)
 
 ## Related Documents
 
