@@ -1,4 +1,11 @@
 {
   "name": "@polymancer/database",
-  "main": "index.ts"
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
 }
