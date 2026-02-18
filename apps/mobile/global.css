@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-cream: 249 246 240;
+    --color-espresso: 44 42 41;
+    --color-midtone: 154 147 140;
+  }
+
+  .dark {
+    --color-cream: 249 246 240;
+    --color-espresso: 44 42 41;
+    --color-midtone: 154 147 140;
+  }
+}

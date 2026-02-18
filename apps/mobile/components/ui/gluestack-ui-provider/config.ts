@@ -153,6 +153,11 @@ export const config = {
     '--color-indicator-primary': '55 55 55',
     '--color-indicator-info': '83 153 236',
     '--color-indicator-error': '185 28 28',
+
+    /* Design Colors */
+    '--color-espresso': '44 42 41',
+    '--color-cream': '249 246 240',
+    '--color-midtone': '154 147 140',
   }),
   dark: vars({
     '--color-primary-0': '166 166 166',
@@ -305,5 +310,15 @@ export const config = {
     '--color-indicator-primary': '247 247 247',
     '--color-indicator-info': '161 199 245',
     '--color-indicator-error': '232 70 69',
+
+    /* Design Colors - Light mode */
+    '--color-espresso': '44 42 41',
+    '--color-cream': '249 246 240',
+    '--color-midtone': '154 147 140',
+  }),
+  dark: vars({
+    '--color-espresso': '249 246 240',
+    '--color-cream': '44 42 41',
+    '--color-midtone': '154 147 140',
   }),
 };

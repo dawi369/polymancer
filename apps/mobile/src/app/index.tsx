@@ -1,20 +1,12 @@
-import { StyleSheet, Text, View } from "react-native";
-import { version } from "@polymancer/database";
-
-console.log("Database linked:", version);
+import { useEffect } from "react";
+import { useRouter } from "expo-router";
 
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>POLYMANCER</Text>
-    </View>
-  );
-}
+  const router = useRouter();
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+  useEffect(() => {
+    router.replace("/(login)");
+  }, []);
+
+  return null;
+}
