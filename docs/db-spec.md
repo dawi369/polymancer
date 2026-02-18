@@ -95,8 +95,8 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 | completed_at | timestamptz | | When execution finished |
 | decision_window_started_at | timestamptz | | When 5-min window opened |
 | decision_window_ends_at | timestamptz | | When 5-min window closes |
-| input_params | jsonb | | Market IDs, research params |
-| output_result | jsonb | | Final decision, positions, P&L |
+| input_params | jsonb | | Market IDs, research params, top news article refs (title/url) |
+| output_result | jsonb | | Final decision, positions, P&L, forecast card/audit |
 | error_message | text | | Error if failed |
 | retry_count | int | default 0 | Number of retries |
 | idempotency_key | uuid | unique | For deduplication |
@@ -117,6 +117,8 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 ## Table: signal_events
 
 Reactive trigger events used for deduping and audit.
+
+For news triggers, detailed article refs live in `runs.input_params`; signal events keep only score/reason metadata.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -160,7 +162,7 @@ Every trading decision (including HOLD and REJECTED).
 | execution_price | numeric | | Actual fill price |
 | slippage_percent | numeric | | Slippage vs best price |
 | fee_usd | numeric | | Fees paid |
-| ai_confidence | numeric | | Confidence from Polyseer |
+| ai_confidence | numeric | | Derived confidence score from Polyseer forecast card |
 | ai_reasoning | text | | Reasoning from Polyseer |
 | rejection_reason | text | | Why rejected |
 | error_message | text | | Error if failed |

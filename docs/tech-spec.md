@@ -218,6 +218,12 @@ export type OrderInput = {
 - Daily cost cap: $0.50 per bot (combined Valyu + OpenRouter).
 - Track cost per run and aggregate daily.
 
+## News Signals (MVP Storage)
+
+- No persistent news article tables in MVP.
+- `signal_events` stores trigger score/reason only.
+- `runs.input_params` stores top article refs (title/url) for audit context.
+
 ### Valyu API Integration
 
 Polyseer uses Valyu for comprehensive market research:
@@ -233,6 +239,17 @@ API key management:
 - Configured at deployment level (not per-user)
 
 Decision intent and Polyseer output schemas are defined in `docs/agent-spec.md`.
+
+## Decision Normalization
+
+- LLM outputs use uppercase enums (BUY/SELL/HOLD, YES/NO).
+- Persist to DB using lowercase enums (buy/sell/hold, yes/no) via a single normalization step at the worker boundary.
+
+## Polyseer Confidence (Derived)
+
+- Polyseer returns a `ForecastCard` without an explicit confidence enum.
+- Derive a numeric confidence score using the forecast card audit checklist and evidence count.
+- Store `ai_confidence` on `trade_logs` and persist the full `ForecastCard` (including `audit`, `clusters`, `provenance`) in `runs.output_result` for auditability.
 
 ## Risk and Policy Engine
 
@@ -320,8 +337,8 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 - completed_at (timestamptz)
 - decision_window_started_at (timestamptz)
 - decision_window_ends_at (timestamptz)
-- input_params (jsonb) - Market IDs, research params
-- output_result (jsonb) - Final decision, positions, P&L
+- input_params (jsonb) - Market IDs, research params, top news article refs (title/url)
+- output_result (jsonb) - Final decision, positions, P&L, forecast card/audit
 - error_message (text)
 - retry_count (int, default 0)
 - idempotency_key (uuid, unique)
@@ -343,7 +360,7 @@ Every trading decision (including HOLD and REJECTED).
 - execution_price (numeric)
 - slippage_percent (numeric)
 - fee_usd (numeric)
-- ai_confidence (numeric)
+- ai_confidence (numeric) - Derived confidence score from forecast card
 - ai_reasoning (text)
 - rejection_reason (text)
 - error_message (text)

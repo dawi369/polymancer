@@ -131,22 +131,35 @@ FOK simulation using pmxt order book depth.
 }
 ```
 
+Note: LLM outputs use uppercase enums; the worker normalizes to lowercase for persistence.
+
 ### Polyseer Output (input to Decision Agent)
 
 ```json
 {
-  "verdict": "YES" | "NO" | "UNCLEAR",
-  "pNeutral": 0.65,
-  "pAware": 0.72,
-  "confidence": "HIGH" | "MEDIUM" | "LOW",
-  "evidence_summary": {
-    "pro": ["point 1"],
-    "con": ["point 1"]
+  "question": "...",
+  "p0": 0.5,
+  "pNeutral": 0.62,
+  "pAware": 0.58,
+  "alpha": 0.1,
+  "drivers": ["factor 1"],
+  "evidenceInfluence": [{ "evidenceId": "...", "logLR": 0.2, "deltaPP": 0.03 }],
+  "clusters": [{ "clusterId": "...", "size": 3, "rho": 0.6, "mEff": 1.8, "meanLLR": 0.12 }],
+  "audit": {
+    "caps": { "A": 2.0, "B": 1.6, "C": 0.8, "D": 0.3 },
+    "checklist": {
+      "baseRatePresent": true,
+      "twoSidedSearch": true,
+      "independenceChecked": true,
+      "influenceUnderThreshold": true
+    }
   },
-  "key_factors": ["factor 1"],
-  "recommendation": "BUY" | "SELL" | "HOLD"
+  "provenance": ["https://..."],
+  "markdownReport": "..."
 }
 ```
+
+Note: Polyseer does not emit a confidence enum; Polymancer derives a numeric `ai_confidence` from the forecast card audit and evidence count.
 
 ## Run Types and Scheduling
 
@@ -196,6 +209,11 @@ Usage:
 - Cache and score articles
 - Derive bullish or bearish signals
 - Provide context to the Decision Agent
+
+Storage (MVP):
+- Store signal metadata in `signal_events`
+- Store top article refs (title/url) in `runs.input_params`
+- No persistent news article tables
 
 Provider (MVP):
 - NewsAPI as the initial source
