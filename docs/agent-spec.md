@@ -81,6 +81,7 @@ Sources:
 Signal scoring:
 - Each signal outputs `score` and `reason`
 - If score passes threshold, enqueue a run
+- Record the signal event for dedupe and audit
 
 ## Worker Runtime
 

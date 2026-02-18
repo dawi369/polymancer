@@ -101,10 +101,11 @@ class PolyseerResearchTool {
 - Progress tracked via `onProgress(step, details)` callback.
 - Concurrency guard: only one run per bot at a time (job claim with `FOR UPDATE SKIP LOCKED`).
 - Runs are idempotent and safe to retry.
+- `runs` is the job queue; scheduled runs are enqueued from `bots.next_run_at`, reactive/user runs are enqueued as they occur.
 
 ### Run Flow (Single Execution)
 
-1. Worker picks up due bot (scheduled every 4 hours, or reactive trigger)
+1. Worker picks up due run from the `runs` queue (scheduled, reactive, or user)
 2. Open 5-minute decision window
 3. Load bot config including user strategy prompt
 4. Enforce kill switch, pause status, daily AI cost cap
@@ -206,6 +207,7 @@ export type OrderInput = {
 - MVP uses pmxt SDK for Polymarket (Kalshi in future).
 - pmxt provides unified API across prediction markets.
 - Full universe discovery via pmxt, then cap to 50 markets per run.
+- Market selection is model-driven within these caps; no deterministic market set for MVP.
 - No TTL caching in MVP.
 
 ## LLM Integration
@@ -242,7 +244,7 @@ Policy checks run in this order:
 4. Max daily loss not exceeded.
 5. Max position size not exceeded.
 6. Slippage threshold not exceeded.
-7. Paper balance sufficient (including fees).
+7. Paper balance sufficient (including fees) using active paper session balance.
 
 Malformed LLM response policy:
 
@@ -270,6 +272,10 @@ No partial fills are recorded.
 - phone_e164 (text, unique) - Normalized E.164 phone number (for trial gating)
 - phone_hash (text) - SHA-256 hash of phone for display
 - tier (text, default 'trial') - 'trial', 'paid'
+- revenuecat_app_user_id (text, unique)
+- entitlement_status (text, default 'inactive') - 'active', 'trialing', 'expired', 'canceled'
+- entitlement_expires_at (timestamptz)
+- entitlement_product_id (text)
 - trial_started_at (timestamptz)
 - trial_ends_at (timestamptz)
 - timezone (text, default 'UTC')
@@ -306,6 +312,8 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 - id (uuid, pk)
 - bot_id (uuid, fk)
 - status (pending, claimed, running, completed, failed)
+- run_type (scheduled, reactive, user)
+- scheduled_for (timestamptz)
 - claimed_by (text) - Worker instance ID
 - claimed_at (timestamptz)
 - started_at (timestamptz)
@@ -358,9 +366,13 @@ Every trading decision (including HOLD and REJECTED).
 - id (uuid, pk)
 - bot_id (uuid, fk)
 - starting_balance_usd (numeric)
+- current_balance_usd (numeric)
+- ended_balance_usd (numeric)
 - started_at (timestamptz)
 - ended_at (timestamptz, nullable)
 - reset_reason (text)
+
+One active session per bot: `ended_at` is null.
 
 ### bot_failures
 
@@ -388,6 +400,36 @@ Telegram account linking.
 - otp_code (text) - Current OTP (hashed)
 - otp_expires_at (timestamptz)
 
+### signal_events
+
+Reactive triggers used for dedupe and audit.
+
+- id (uuid, pk)
+- bot_id (uuid, fk)
+- signal_type (text) - 'news', 'price', 'liquidity', 'volume'
+- score (numeric)
+- reason (text)
+- window_start (timestamptz)
+- window_end (timestamptz)
+- status (text) - 'new', 'queued', 'ignored'
+- run_id (uuid, fk, nullable)
+- created_at (timestamptz)
+
+### chat_messages
+
+Telegram chat history with rolling retention.
+
+- id (uuid, pk)
+- user_id (uuid, fk)
+- bot_id (uuid, fk)
+- channel (text) - 'telegram'
+- direction (text) - 'user', 'assistant', 'system'
+- message_text (text)
+- metadata (jsonb)
+- created_at (timestamptz)
+
+Retention: keep 90 days, purge older rows via scheduled job.
+
 ### daily_summaries
 
 Cached daily summary for notifications (denormalized).
@@ -404,10 +446,11 @@ Cached daily summary for notifications (denormalized).
 Indexes:
 
 - users(phone_e164) - unique, for trial gating
+- users(revenuecat_app_user_id) - unique
 - bots(user_id) - unique
-- bots(next_run_at) - for worker polling
+- bots(next_run_at) - for scheduler polling
 - runs(bot_id) - for looking up bot history
-- runs(status, created_at desc) - for admin queries
+- runs(status, scheduled_for asc) - for worker polling
 - runs(idempotency_key) - unique, for deduplication
 - trade_logs(bot_id, created_at desc)
 - trade_logs(run_id) - for linking to runs
@@ -416,6 +459,8 @@ Indexes:
 - paper_sessions(bot_id) - for history
 - bot_failures(bot_id, created_at desc) - for diagnostics
 - daily_summaries(bot_id, date) - unique
+- signal_events(bot_id, signal_type, window_start) - unique
+- chat_messages(user_id, created_at desc)
 
 ## Auth and RLS
 
@@ -439,7 +484,7 @@ Indexes:
 
 Note: This OTP is for Telegram linking only. App phone verification happens during onboarding.
 
-Telegram is read-only in MVP.
+Telegram is the primary interaction channel; configuration remains in the app.
 
 ## Notifications
 
@@ -447,13 +492,14 @@ Telegram is read-only in MVP.
 - All timestamps are stored in UTC; `users.timezone` is used only for notification scheduling.
 - Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change.
 - Large position change threshold: TBD.
+- Scheduler runs in UTC and computes local 9am; `daily_summaries` is unique per bot per local date.
 
 ## Billing (RevenueCat)
 
 - Paid-only with 7-day trial.
 - Trial gated by phone number (unique per E.164 normalized number).
 - $19.99/month.
-- Webhook updates user tier and entitlements.
+- Webhook updates `tier`, `entitlement_status`, `entitlement_expires_at`, and `entitlement_product_id`.
 - No free tier in MVP, but schema should allow it.
 
 ## API Surface (MVP)
@@ -463,7 +509,7 @@ Public endpoints (authenticated):
 - GET /me
 - GET /bot
 - PATCH /bot (update config, including status: active/paused)
-- POST /bot/reset-paper
+- POST /bot/reset-paper (close current session, start new paper session)
 - GET /runs (bot execution history)
 - GET /trade-logs
 - GET /positions
@@ -492,7 +538,7 @@ Internal endpoints:
 
 - **Fly.io** for both API and Worker services.
 - API: Bun + Elysia, scales horizontally.
-- Worker: Long-running Bun process, polls for due bots every 30-60s.
+- Worker: Long-running Bun process, polls the `runs` queue every 30-60s.
 - Supabase for auth, database, and job queue.
 - Valyu API key configured at deployment level.
 - pmxt SDK for Polymarket (and future Kalshi) access.

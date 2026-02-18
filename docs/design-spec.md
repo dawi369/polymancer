@@ -105,6 +105,7 @@ Additional policies:
 - User can reset paper balance at any time.
 - Each reset starts a new paper session.
 - P&L history is preserved across sessions.
+- Session history stores start/end balances; active session tracks current balance.
 
 ## Notifications
 

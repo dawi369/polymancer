@@ -19,6 +19,10 @@ Primary user record linked to Supabase Auth.
 | phone_e164 | text | unique | Normalized E.164 phone number (for trial gating) |
 | phone_hash | text | | SHA-256 hash of phone for display |
 | tier | text | default 'trial' | 'trial', 'paid' |
+| revenuecat_app_user_id | text | unique | RevenueCat app user ID |
+| entitlement_status | text | default 'inactive' | 'active', 'trialing', 'expired', 'canceled' |
+| entitlement_expires_at | timestamptz | | When paid entitlement expires |
+| entitlement_product_id | text | | Active product SKU |
 | trial_started_at | timestamptz | | When trial began |
 | trial_ends_at | timestamptz | | When trial expires |
 | timezone | text | default 'UTC' | User timezone for notifications |
@@ -30,6 +34,7 @@ Primary user record linked to Supabase Auth.
 ### Indexes
 - `users(id)` - primary key
 - `users(phone_e164)` - unique, for trial gating
+- `users(revenuecat_app_user_id)` - unique
 
 ### RLS
 - Users can read/update their own row
@@ -65,7 +70,7 @@ One bot per user. Contains configuration and scheduling.
 ### Indexes
 - `bots(id)` - primary key
 - `bots(user_id)` - unique
-- `bots(next_run_at)` - for worker polling
+- `bots(next_run_at)` - for scheduler polling
 
 ### RLS
 - Users can read/update their own bot
@@ -82,6 +87,8 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 | id | uuid | pk | |
 | bot_id | uuid | fk -> bots.id | |
 | status | text | default 'pending' | 'pending', 'claimed', 'running', 'completed', 'failed' |
+| run_type | text | default 'scheduled' | 'scheduled', 'reactive', 'user' |
+| scheduled_for | timestamptz | | When run is eligible |
 | claimed_by | text | | Worker instance ID |
 | claimed_at | timestamptz | | When job was claimed |
 | started_at | timestamptz | | When execution started |
@@ -98,11 +105,39 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 ### Indexes
 - `runs(id)` - primary key
 - `runs(bot_id)` - for looking up bot history
-- `runs(status, created_at desc)` - for admin queries
+- `runs(status, scheduled_for asc)` - for worker polling
 - `runs(idempotency_key)` - unique
 
 ### RLS
 - Users can read their own runs
+- Service role can read/write all
+
+---
+
+## Table: signal_events
+
+Reactive trigger events used for deduping and audit.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| bot_id | uuid | fk -> bots.id | |
+| signal_type | text | | 'news', 'price', 'liquidity', 'volume' |
+| score | numeric | | Trigger score |
+| reason | text | | Short reason |
+| window_start | timestamptz | | Window start (UTC) |
+| window_end | timestamptz | | Window end (UTC) |
+| status | text | default 'new' | 'new', 'queued', 'ignored' |
+| run_id | uuid | fk -> runs.id | nullable |
+| created_at | timestamptz | default now | |
+
+### Indexes
+- `signal_events(id)` - primary key
+- `signal_events(bot_id, created_at desc)` - for diagnostics
+- `signal_events(bot_id, signal_type, window_start)` - unique, dedupe within window
+
+### RLS
+- Users can read their own signal events
 - Service role can read/write all
 
 ---
@@ -178,6 +213,7 @@ Paper balance resets.
 | id | uuid | pk | |
 | bot_id | uuid | fk -> bots.id | |
 | starting_balance_usd | numeric | | Balance at session start |
+| current_balance_usd | numeric | | Current balance within session |
 | ended_balance_usd | numeric | | Balance at session end |
 | started_at | timestamptz | | Session start |
 | ended_at | timestamptz | nullable | Session end |
@@ -190,6 +226,8 @@ Paper balance resets.
 ### RLS
 - Users can read their own sessions
 - Service role can read/write all
+
+One active session per bot: the row with `ended_at` null.
 
 ---
 
@@ -244,6 +282,33 @@ Telegram account linking.
 
 ---
 
+## Table: chat_messages
+
+Telegram chat history (rolling retention).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| user_id | uuid | fk -> users.id | |
+| bot_id | uuid | fk -> bots.id | |
+| channel | text | default 'telegram' | Message source |
+| direction | text | | 'user', 'assistant', 'system' |
+| message_text | text | | Message content |
+| metadata | jsonb | | Message IDs, reply references |
+| created_at | timestamptz | default now | |
+
+### Indexes
+- `chat_messages(id)` - primary key
+- `chat_messages(user_id, created_at desc)` - for history
+
+### RLS
+- Users can read their own messages
+- Service role can read/write all
+
+Retention: keep 90 days, purge older rows via scheduled job.
+
+---
+
 ## Table: daily_summaries
 
 Cached daily summary for notifications (denormalized).
@@ -271,23 +336,26 @@ Cached daily summary for notifications (denormalized).
 
 ## Job Queue Pattern
 
-The `runs` table serves as the job queue. Workers poll for due bots:
+The `runs` table serves as the job queue. A scheduler enqueues scheduled runs based on `bots.next_run_at`.
 
 ```sql
--- Worker picks up due bots
-SELECT * FROM bots
+-- Scheduler enqueues scheduled runs
+INSERT INTO runs (bot_id, run_type, status, scheduled_for, idempotency_key)
+SELECT id, 'scheduled', 'pending', next_run_at, gen_random_uuid()
+FROM bots
 WHERE status = 'active'
-  AND next_run_at <= NOW()
-ORDER BY next_run_at ASC
+  AND next_run_at <= NOW();
+
+-- Worker picks up due runs
+SELECT * FROM runs
+WHERE status = 'pending'
+  AND scheduled_for <= NOW()
+ORDER BY scheduled_for ASC
 LIMIT 10
 FOR UPDATE SKIP LOCKED;
-
--- After claiming, create run record
-INSERT INTO runs (bot_id, status, claimed_by, decision_window_started_at, decision_window_ends_at)
-VALUES ($bot_id, 'claimed', $worker_id, NOW(), NOW() + interval '5 minutes');
 ```
 
-After execution, update the bot's `next_run_at`:
+After execution of a scheduled run, update the bot's `next_run_at`:
 
 ```sql
 UPDATE bots
