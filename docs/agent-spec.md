@@ -217,7 +217,7 @@ Storage (MVP):
 
 Provider (MVP):
 - NewsAPI as the initial source
-- API key from env: `NEWS_API_KEY`
+- API key setup in `docs/deployment-spec.md`
 - Additional providers can be layered later
 
 ## Chat Capabilities (24/7)

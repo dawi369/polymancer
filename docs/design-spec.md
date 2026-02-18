@@ -49,11 +49,11 @@ Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading ag
 ## Architecture Overview
 
 ```
-Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
+Mobile App (Expo) <-> API (Bun + Elysia)
                           |
-                          +-> Supabase (auth + data + job queue)
+                          +-> Data store (auth + data + job queue)
                           |
-                    Worker (Bun, Fly.io)
+                    Worker (Bun)
                           |
                           |-> Decision Agent (our code)
                           |   +-> Polyseer (research tool)
@@ -70,14 +70,7 @@ Agent behavior, data contracts, and scheduling rules are in `docs/agent-spec.md`
 Database schema and data model are in `docs/db-spec.md`.
 Technical implementation details are in `docs/tech-spec.md`.
 
-### Hosting
-
-- **API**: Bun + Elysia on Fly.io (fast, user-facing HTTP)
-- **Worker**: Long-running process on Fly.io that:
-  - Polls for due bots every 30-60s
-  - Claims jobs with `FOR UPDATE SKIP LOCKED` for safe horizontal scaling
-  - Runs the Decision Agent, invokes Polyseer when needed, executes paper trades, records results
-- **Database**: Supabase Postgres (shared by API + Worker)
+Deployment details are in `docs/deployment-spec.md`.
 
 ## Technical References
 
@@ -151,8 +144,6 @@ All decisions (including HOLD and REJECTED) are logged.
 
 ## Observability and Safety
 
-- Structured logs for all runs and decisions.
-- Health endpoint for API and agent runtime.
 - Hard guardrail: live adapter disabled in MVP.
 
 ## Future (Post-MVP)

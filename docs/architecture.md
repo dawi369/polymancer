@@ -144,3 +144,4 @@ Note: `pmxt` is installed via `bun add pmxtjs` in apps that need it.
 
 - `docs/agent-spec.md` for agent behavior, data contracts, and scheduling
 - `docs/tech-spec.md` for integration details and implementation notes
+- `docs/deployment-spec.md` for hosting and ops
