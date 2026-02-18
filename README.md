@@ -1,4 +1,4 @@
-# Polymancer 
+# Polymancer
 
 Summon your 24/7 Polymarket trading agent.
 
@@ -8,9 +8,9 @@ See the [`docs/`](./docs) folder for complete project documentation:
 
 - **[architecture.md](./docs/architecture.md)** - System architecture (start here)
 - **[design-spec.md](./docs/design-spec.md)** - MVP product requirements
-- **[agent-schema.md](./docs/agent-schema.md)** - Agent architecture and behavior
+- **[agent-spec.md](./docs/agent-spec.md)** - Agent architecture and behavior
 - **[tech-spec.md](./docs/tech-spec.md)** - Technical implementation details
-- **[db-specs.md](./docs/db-specs.md)** - Database specifications
+- **[db-spec.md](./docs/db-spec.md)** - Database specifications
 
 ## Quick Overview
 

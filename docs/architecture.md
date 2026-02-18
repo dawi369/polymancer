@@ -1,7 +1,7 @@
 # Polymancer System Architecture
 
 This document describes the system-level components, boundaries, and integration points.
-For agent behavior, data contracts, and scheduling rules, see `docs/agent-schema.md`.
+For agent behavior, data contracts, and scheduling rules, see `docs/agent-spec.md`.
 
 ## Overview
 
@@ -125,5 +125,5 @@ Note: `pmxt` is installed via `bun add pmxtjs` in apps that need it.
 
 ## Related Documents
 
-- `docs/agent-schema.md` for agent behavior, data contracts, and scheduling
+- `docs/agent-spec.md` for agent behavior, data contracts, and scheduling
 - `docs/tech-spec.md` for integration details and implementation notes

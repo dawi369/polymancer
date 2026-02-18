@@ -33,7 +33,7 @@ Dependencies:
 
 ## Agent Architecture
 
-See `docs/agent-schema.md` for the complete agent system design, including:
+See `docs/agent-spec.md` for the complete agent system design, including:
 
 - Decision Agent (conversation + decision authority)
 - Signal Layer (reactive triggers)
@@ -118,8 +118,6 @@ class PolyseerResearchTool {
 10. Record decision, update positions, emit notifications
 11. Close decision window
 
-
-
 ## pmxt Integration
 
 pmxt is our trading infrastructure (github.com/pmxt-dev/pmxt).
@@ -162,7 +160,7 @@ const order = await exchange.createOrder({
 
 ## User Advice Integration
 
-User advice is stored as a strategy prompt on the bot and injected into the Decision Agent context. See `docs/agent-schema.md` for behavior rules and chat interactions.
+User advice is stored as a strategy prompt on the bot and injected into the Decision Agent context. See `docs/agent-spec.md` for behavior rules and chat interactions.
 
 ## ExecutionAdapter
 
@@ -231,7 +229,7 @@ API key management:
 - Valyu API key required for agent research capabilities
 - Configured at deployment level (not per-user)
 
-Decision intent and Polyseer output schemas are defined in `docs/agent-schema.md`.
+Decision intent and Polyseer output schemas are defined in `docs/agent-spec.md`.
 
 ## Risk and Policy Engine
 

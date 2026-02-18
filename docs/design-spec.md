@@ -63,7 +63,7 @@ Mobile App (Expo) <-> API (Bun + Elysia, Fly.io)
 ```
 
 Detailed component boundaries are in `docs/architecture.md`.
-Agent behavior, data contracts, and scheduling rules are in `docs/agent-schema.md`.
+Agent behavior, data contracts, and scheduling rules are in `docs/agent-spec.md`.
 
 ### Hosting
 
