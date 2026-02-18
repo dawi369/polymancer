@@ -68,11 +68,11 @@ class PolyseerResearchTool {
     });
 
     return {
-      pNeutral: result.pNeutral, // Objective probability
-      pAware: result.pAware, // Market-informed probability
-      recommendation: result.recommendation, // BUY/SELL/HOLD
-      evidence: result.evidence_summary,
-      confidence: result.confidence,
+      forecastCard: result,
+      pNeutral: result.pNeutral,
+      pAware: result.pAware,
+      drivers: result.drivers,
+      markdownReport: result.markdownReport,
     };
   }
 }
@@ -97,7 +97,7 @@ class PolyseerResearchTool {
 
 - One bot per user (MVP).
 - Polyseer is invoked as a **synchronous pipeline** by the Worker, not run as a scheduled daemon.
-- Entry point: `runUnifiedForecastPipeline(opts)` - returns `ForecastCard` with pNeutral, pAware, recommendation.
+- Entry point: `runUnifiedForecastPipeline(opts)` - returns `ForecastCard` with p0, pNeutral, pAware, drivers, audit.
 - Progress tracked via `onProgress(step, details)` callback.
 - Concurrency guard: only one run per bot at a time (job claim with `FOR UPDATE SKIP LOCKED`).
 - Runs are idempotent and safe to retry.
@@ -119,6 +119,27 @@ class PolyseerResearchTool {
 9. Simulate FOK execution via pmxt paper adapter
 10. Record decision, update positions, emit notifications
 11. Close decision window
+
+### Worker Loop (MVP)
+
+- Tick every 30-60s.
+- Enqueue scheduled runs for bots where `next_run_at <= now` (dedupe via `idempotency_key`).
+- Requeue stale claims where `claimed_at` is older than 10 minutes.
+- Claim pending runs ordered by `scheduled_for` using `FOR UPDATE SKIP LOCKED`.
+- Set status `running`, execute the run flow, then mark `completed` or `failed`.
+- Retry transient failures up to 3 times with exponential backoff.
+
+### Run State Transitions
+
+- `pending -> claimed -> running -> completed | failed`
+- `claimed -> pending` if stale and not started
+
+### Idempotency and Dedupe
+
+- Scheduled runs: `idempotency_key` derived from `(bot_id, scheduled_for)` bucket.
+- Reactive runs: key from `signal_events.id`.
+- User runs: key from user request id.
+- On conflict, skip enqueue and keep existing run.
 
 ## pmxt Integration
 
@@ -249,6 +270,9 @@ Decision intent and Polyseer output schemas are defined in `docs/agent-spec.md`.
 
 - Polyseer returns a `ForecastCard` without an explicit confidence enum.
 - Derive a numeric confidence score using the forecast card audit checklist and evidence count.
+- Formula (clamped to 0-1):
+  `0.35 + 0.05*ln(1+evidenceCount) + 0.10*baseRatePresent + 0.10*twoSidedSearch + 0.10*independenceChecked + 0.10*influenceUnderThreshold`
+- Bands: HIGH >= 0.75, MED 0.55-0.74, LOW < 0.55.
 - Store `ai_confidence` on `trade_logs` and persist the full `ForecastCard` (including `audit`, `clusters`, `provenance`) in `runs.output_result` for auditability.
 
 ## Risk and Policy Engine

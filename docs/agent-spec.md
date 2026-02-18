@@ -62,7 +62,7 @@ Entry point:
 - `runUnifiedForecastPipeline(marketUrl, options)`
 
 Outputs:
-- `ForecastCard` with `pNeutral`, `pAware`, `recommendation`, `evidence_summary`
+- `ForecastCard` with `p0`, `pNeutral`, `pAware`, `drivers`, `audit`, `markdownReport`
 
 Usage rules:
 - Use Polyseer for high-value or ambiguous trades
@@ -190,7 +190,7 @@ For MVP, use a single Worker instance that processes all bots sequentially:
 
 - One Worker handles all bot runs
 - Only one run per bot at a time (enforced by `FOR UPDATE SKIP LOCKED`)
-- Reactive triggers queue behind scheduled runs
+- Runs are executed by `scheduled_for` order; no priority scheme in MVP
 - Scaling decisions deferred until post-MVP
 
 Concurrency limits (MVP):

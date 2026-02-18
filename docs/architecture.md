@@ -67,6 +67,7 @@ Web UI is not part of the MVP; future scope is TBD.
 ### Worker and Decision Agent
 
 - Schedules and executes runs (scheduled, reactive, user-triggered)
+- Scheduler tick enqueues due scheduled runs from `bots.next_run_at`
 - Runs a single Decision Agent with tool access
 - Produces decision intents, not direct trades
 
@@ -77,7 +78,7 @@ https://github.com/yorkeccak/Polyseer
 
 - External research tool (git submodule)
 - Inputs: market URL
-- Outputs: pNeutral, pAware, recommendation, evidence summary
+- Outputs: ForecastCard (pNeutral, pAware, drivers, audit, markdown report)
 - Invoked selectively based on uncertainty or trade value
 
 ### pmxt Integration
