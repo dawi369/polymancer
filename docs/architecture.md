@@ -114,7 +114,28 @@ https://github.com/theSchein/pamela
 ### Data Store and Notifications
 
 - Supabase for auth, data, and job queue
+- Upstash Redis for message queue (Telegram webhooks, background jobs)
 - Expo Push for summaries/alerts, Telegram for chat
+
+### Message Queue (Redis)
+
+**Hosting:** Upstash ($10/mo fixed plan) via Fly.io integration
+
+**Queues:**
+- `telegram:messages` - Incoming Telegram messages
+- `notifications` - Expo push notifications
+- `background` - Reconciler, cleanup jobs
+
+**Worker Architecture:**
+- Separate Fly.io app (`apps/worker`) consuming from Redis
+- BullMQ blocking commands (no polling, automatic job distribution)
+- Scale by increasing worker instance count
+
+**Flow:**
+1. API receives webhook → validates → enqueues → returns 200
+2. Worker processes queue items asynchronously
+3. Failed items retry with exponential backoff
+4. Dead letter queue for persistent failures
 
 ## Control Flow (High Level)
 

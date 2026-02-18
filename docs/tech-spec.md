@@ -552,9 +552,34 @@ Indexes:
 - RLS: users read their own rows; backend service role writes trade logs and positions.
 - No client access to service role or trading internals.
 
-## Telegram Linking (Deep Link + Contact)
+## Telegram Integration
 
-**Flow:**
+### Webhook Architecture
+
+**Pattern:** Webhook + Queue for reliability
+
+```
+Telegram Servers ──HTTPS webhook──► API (Elysia) ──enqueue──► Upstash Redis
+                                                              │
+                                                              ▼
+                                                    Worker Service
+                                                    (BullMQ consumers)
+```
+
+**Why this pattern:**
+- Survives brief outages (queue buffers messages)
+- Handles traffic spikes gracefully
+- Prevents missed messages during deployments
+- Scales beyond MVP
+
+**Webhook Endpoint:** `POST /webhooks/telegram`
+1. Validate `X-Telegram-Bot-Api-Secret-Token` header
+2. Immediately return 200 OK (within 60s)
+3. Enqueue message for async processing
+4. Background worker processes from queue
+
+### Linking Flow
+
 1. User taps "Connect Telegram" in app
 2. App generates link token (10 min expiry) → deep link: `https://t.me/PolymancerBot?start=TOKEN`
 3. User taps Start in Telegram → bot requests contact share
@@ -647,6 +672,7 @@ CREATE TABLE processed_webhooks (
 
 **Internal endpoints:**
 
+- POST /webhooks/telegram (receives Telegram updates, validates secret token, enqueues)
 - POST /webhooks/revenuecat
 - POST /admin/kill-switch (protected by admin bearer token)
 - GET /admin/health

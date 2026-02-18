@@ -20,12 +20,15 @@ Deployment and operational details for the MVP. Architecture, data model, and ag
 - Telegram Bot API (chat + phone verification).
 - Expo Push (notifications).
 - NewsAPI (Pamela news source).
+- **Redis (Upstash)** - Message queue for Telegram webhooks and background jobs.
 
 ## Deployment Configuration
 
 - Valyu API key configured at deployment level.
 - NewsAPI key provided via `NEWS_API_KEY`.
 - Provider credentials for OpenRouter, RevenueCat, Telegram, and Expo Push.
+- **Redis URL** - Upstash connection string (via Fly.io integration or direct).
+- `TELEGRAM_WEBHOOK_SECRET` - Random token for webhook validation (e.g., `openssl rand -base64 32`).
 
 ## Operational Controls
 
@@ -41,6 +44,35 @@ Emergency stop for all trading. See `docs/tech-spec.md` for implementation.
 - Endpoint: `POST /admin/kill-switch`
 - Protected by admin bearer token
 - Persists until explicitly disabled
+
+## Redis (Upstash)
+
+**Hosting:** Upstash via Fly.io integration ($10/mo fixed plan)
+- Single instance handles all queues
+- Private networking within Fly.io organization
+- Zero maintenance (backups, failover handled)
+
+**Queues:**
+- `telegram:messages` - Incoming Telegram webhooks
+- `notifications` - Expo push notifications
+- `background` - Reconciler and cleanup jobs
+
+**Worker Architecture:**
+- **Separate Fly.io app** (`apps/worker`) from API
+- BullMQ workers use blocking commands (no polling)
+- Workers automatically receive jobs from Redis
+- Scale by increasing worker instance count
+- **Concurrency:** 10-50 concurrent jobs per worker (I/O heavy = higher)
+
+**Worker Service Setup:**
+```toml
+# apps/worker/fly.toml
+[env]
+REDIS_URL = "rediss://...upstash.io:6379"
+
+[[services]]
+  # No public ports - workers consume from Redis only
+```
 
 ## Scheduled Jobs (Cron)
 
