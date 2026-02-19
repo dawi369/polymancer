@@ -66,6 +66,7 @@ Web UI is not part of the MVP. See `docs/post-mvp-spec.md`.
 
 ### Worker and Decision Agent
 
+- Single worker service handles scheduling, run execution, and Redis queue consumption
 - Schedules and executes runs (scheduled, reactive, user-triggered)
 - Scheduler tick enqueues due scheduled runs from `bots.next_run_at`
 - Runs a single Decision Agent with tool access
@@ -151,6 +152,22 @@ https://github.com/theSchein/pamela
 5. Decision intent produced and validated by risk engine
 6. Paper execution via pmxt adapter
 7. Results persisted and notifications emitted
+
+## Agent Workflow (Bird's-eye)
+
+- Inputs: user strategy + portfolio state + market data + news signals
+- Reasoning: LLM evaluates opportunities and forms a decision intent
+- Guardrails: risk engine validates against limits and pauses
+- Output: paper execution, logs, and summary/alerts
+
+## Decision Run (Detailed)
+
+1. Worker claims a run and opens the decision window
+2. Dependency health gate checks required services
+3. Gather market data and news signals; invoke Polyseer if needed
+4. Decision Agent emits a BUY/SELL/HOLD intent with reasoning
+5. Risk engine validates limits; execution adapter simulates FOK
+6. Persist run + trade logs, update positions, emit notifications
 
 ## Repository Layout
 

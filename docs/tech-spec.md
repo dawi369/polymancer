@@ -138,6 +138,7 @@ class PolyseerResearchTool {
 ### Worker Loop (MVP)
 
 - Tick every 30-60s.
+- Consume Redis queues for telegram messages, notifications, and background jobs.
 - Enqueue scheduled runs for bots where `next_run_at <= now` (dedupe via `idempotency_key`).
 - Requeue stale claims where `claimed_at` is older than 10 minutes.
 - Claim pending runs ordered by `scheduled_for` using `FOR UPDATE SKIP LOCKED`.
@@ -603,7 +604,8 @@ Cached daily summary for notifications (denormalized).
 Retention:
 
 - daily_notes are deleted after summary generation
-- all other data retained for 1 year unless noted otherwise
+- telegram chat is retained for 90 days
+- all other data retained indefinitely unless noted otherwise
 
 Indexes:
 

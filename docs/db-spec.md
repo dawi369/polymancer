@@ -392,7 +392,7 @@ Cached daily summary for notifications (denormalized).
 - Users can read their own summaries
 - Service role can read/write all
 
-Retention: keep 1 year.
+Retention: keep indefinitely.
 
 ---
 

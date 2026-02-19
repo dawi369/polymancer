@@ -25,7 +25,7 @@ Paper-only MVP that lets non-technical users summon a 24/7 Polymarket trading ag
 - Live trading or custody of user keys.
 - In-app chat.
 - Web UI (backend should be reusable later).
-- Redis or heavy caching layers.
+- Heavy caching layers.
 - Partial fills (FOK only).
 
 ## Target User and Promise
