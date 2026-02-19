@@ -14,19 +14,19 @@ export default function HomeScreen() {
       </View>
 
       <View className="flex-1 px-6 gap-4">
-        <View className="bg-white dark:bg-white/10 p-5 rounded-2xl">
+        <View className="bg-cream dark:bg-midtone/20 p-5 rounded-2xl border border-midtone/30">
           <Text className="text-xs text-midtone uppercase tracking-wider mb-2">
             Bot Status
           </Text>
           <View className="flex-row items-center gap-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <View className="w-2.5 h-2.5 rounded-full bg-espresso dark:bg-cream" />
             <Text className="text-lg font-semibold text-espresso dark:text-cream">
               Active
             </Text>
           </View>
         </View>
 
-        <View className="bg-white dark:bg-white/10 p-5 rounded-2xl">
+        <View className="bg-cream dark:bg-midtone/20 p-5 rounded-2xl border border-midtone/30">
           <Text className="text-xs text-midtone uppercase tracking-wider mb-2">
             Paper Balance
           </Text>
@@ -35,7 +35,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View className="bg-white dark:bg-white/10 p-5 rounded-2xl">
+        <View className="bg-cream dark:bg-midtone/20 p-5 rounded-2xl border border-midtone/30">
           <Text className="text-xs text-midtone uppercase tracking-wider mb-2">
             Today's P&L
           </Text>

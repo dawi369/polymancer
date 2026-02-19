@@ -26,19 +26,19 @@ export default function TelegramAuth() {
         </Text>
 
         <View className="w-full gap-4">
-          <View className="flex-row items-center bg-white dark:bg-white/10 p-4 rounded-xl gap-3">
+          <View className="flex-row items-center bg-cream dark:bg-midtone/20 p-4 rounded-xl gap-3 border border-midtone/30">
             <Text className="text-2xl">🔔</Text>
             <Text className="text-sm text-espresso dark:text-cream flex-1">
               Real-time trade alerts
             </Text>
           </View>
-          <View className="flex-row items-center bg-white dark:bg-white/10 p-4 rounded-xl gap-3">
+          <View className="flex-row items-center bg-cream dark:bg-midtone/20 p-4 rounded-xl gap-3 border border-midtone/30">
             <Text className="text-2xl">📊</Text>
             <Text className="text-sm text-espresso dark:text-cream flex-1">
               Daily performance summaries
             </Text>
           </View>
-          <View className="flex-row items-center bg-white dark:bg-white/10 p-4 rounded-xl gap-3">
+          <View className="flex-row items-center bg-cream dark:bg-midtone/20 p-4 rounded-xl gap-3 border border-midtone/30">
             <Text className="text-2xl">⚠️</Text>
             <Text className="text-sm text-espresso dark:text-cream flex-1">
               Emergency stop controls

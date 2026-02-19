@@ -2,18 +2,13 @@
   "expo": {
     "name": "polymancer",
     "slug": "polymancer",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "orientation": "portrait",
-    "icon": "./assets/ios-master.png",
     "scheme": "polymancer",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "icon": {
-        "light": "./assets/ios-master.png",
-        "dark": "./assets/android-foreground.png",
-        "tinted": "./assets/android-foreground.png"
-      },
+      "icon": "./assets/icon_polymancer_no_alpha.png",
       "bundleIdentifier": "ai.polymancer",
       // might be able to get rid of this later
       "infoPlist": {
@@ -22,8 +17,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/android-foreground.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/icon_polymancer_transparent.png",
+        "backgroundColor": "#2C2A29"
       },
       "predictiveBackGestureEnabled": false,
       "package": "ai.polymancer"
@@ -31,7 +26,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/ios-master.png"
+      "favicon": "./assets/icon_polymancer_no_alpha.png"
     },
     "plugins": [
       "expo-router",
