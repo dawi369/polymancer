@@ -79,6 +79,12 @@ Sources:
 - Market movement (price and liquidity changes)
 - User-triggered runs (Telegram)
 
+Market polling (MVP):
+- Worker polls market data every 60s for a scoped set of markets
+- Scope: open positions + last 50 markets seen in recent runs
+- Compute 15-minute deltas for price, liquidity, volume
+- If thresholds are met, emit `signal_events` and enqueue a reactive run
+
 Signal scoring:
 - Each signal outputs `score` and `reason`
 - If score passes threshold, enqueue a run

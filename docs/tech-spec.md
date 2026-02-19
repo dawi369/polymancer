@@ -139,6 +139,8 @@ class PolyseerResearchTool {
 
 - Tick every 30-60s.
 - Consume Redis queues for telegram messages, notifications, and background jobs.
+- Poll market data every 60s for a scoped set (open positions + last 50 markets from recent runs).
+- Compute 15-minute deltas (price, liquidity, volume) and enqueue reactive runs on threshold hits.
 - Enqueue scheduled runs for bots where `next_run_at <= now` (dedupe via `idempotency_key`).
 - Requeue stale claims where `claimed_at` is older than 10 minutes.
 - Claim pending runs ordered by `scheduled_for` using `FOR UPDATE SKIP LOCKED`.
