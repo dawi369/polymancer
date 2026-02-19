@@ -12,10 +12,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_NO_CAPABILITY_SYNC": "1"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
