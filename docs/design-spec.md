@@ -103,8 +103,9 @@ Additional policies:
 
 ## Notifications
 
-- 9am daily summary (local time using `users.timezone`; all stored timestamps remain UTC).
-- Scheduler runs in UTC and computes local 9am for each user.
+- Daily notes captured during the day.
+- 8am local time: generate summary and clear prior-day notes.
+- 9am local time: send summary (computed in UTC using `users.timezone`).
 - Alert on: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).
 
 ## Telegram

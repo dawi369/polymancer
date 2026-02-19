@@ -32,7 +32,7 @@ Deployment and operational details for the MVP. Architecture, data model, and ag
 
 ## Operational Controls
 
-- API rate limit per user: 60 req/min (tunable).
+- API rate limit per user: TBD (set after early traffic observation).
 - AI cost caps: see `docs/tech-spec.md`.
 - Backoff on pmxt/API errors.
 

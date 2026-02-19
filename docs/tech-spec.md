@@ -123,16 +123,17 @@ class PolyseerResearchTool {
 2. Open 5-minute decision window
 3. Load bot config including user strategy prompt
 4. Enforce kill switch, pause status, daily AI cost cap
-5. Decision Agent analyzes market using tools:
+5. Dependency health gate: if any required service is down, mark run failed and stop
+6. Decision Agent analyzes market using tools:
    - Query pmxt for market data (prices, order book)
    - Query Pamela news service for signals
    - Optionally invoke Polyseer for deep research (if uncertain/high-value)
-6. LLM synthesizes: user advice + research + market data + news
-7. Generate decision intent (BUY/SELL/HOLD with reasoning)
-8. Run risk checks (position size, daily loss, slippage)
-9. Simulate FOK execution via pmxt paper adapter
-10. Record decision, update positions, emit notifications
-11. Close decision window
+7. LLM synthesizes: user advice + research + market data + news
+8. Generate decision intent (BUY/SELL/HOLD with reasoning)
+9. Run risk checks (position size, daily loss, slippage)
+10. Simulate FOK execution via pmxt paper adapter
+11. Record decision, update positions, emit notifications
+12. Close decision window
 
 ### Worker Loop (MVP)
 
@@ -539,12 +540,12 @@ Telegram account linking.
 - id (uuid, pk)
 - user_id (uuid, fk, unique)
 - telegram_user_id (text, unique)
-- phone_hash (text) - Hash from Telegram
-- phone_last4 (text) - Last 4 digits
+- phone_e164 (text, unique)
+- phone_hash (text)
 - linked_at (timestamptz)
 - status (text, default 'pending') - 'pending', 'linked'
-- otp_code (text) - Current OTP (hashed)
-- otp_expires_at (timestamptz)
+- link_token (text, unique) - One-time token (hashed, expires 10 min)
+- link_expires_at (timestamptz)
 
 ### signal_events
 
@@ -576,6 +577,16 @@ Telegram chat history with rolling retention.
 
 Retention: keep 90 days, purge older rows via scheduled job.
 
+### daily_notes
+
+Per-bot notes captured during the day for summary generation.
+
+- id (uuid, pk)
+- bot_id (uuid, fk)
+- date (date) - Local date for the note
+- note_text (text)
+- created_at (timestamptz)
+
 ### daily_summaries
 
 Cached daily summary for notifications (denormalized).
@@ -588,6 +599,11 @@ Cached daily summary for notifications (denormalized).
 - trades_count (int)
 - positions_count (int)
 - generated_at (timestamptz)
+
+Retention:
+
+- daily_notes are deleted after summary generation
+- all other data retained for 1 year unless noted otherwise
 
 Indexes:
 
@@ -692,8 +708,10 @@ Emergency stop for all trading activity.
 
 ## Notifications
 
-- 9am daily summary (local time per `users.timezone`; all stored timestamps remain UTC).
-- Scheduler runs in UTC and computes local 9am for each user.
+- Daily notes are captured during runs and stored in `daily_notes`.
+- At 8am local time, generate `daily_summaries` and delete prior-day notes.
+- At 9am local time, send the summary via Expo Push.
+- Scheduler runs in UTC and computes local time per `users.timezone` (timestamps stored in UTC).
 - Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).
 - `daily_summaries` is unique per bot per local date.
 

@@ -255,6 +255,7 @@ If a dependency is down:
 - Pause execution and record a failure
 - Do not run the bot
 - Retry on next scheduled cycle
+- No partial execution when dependencies are unhealthy
 
 All trade actions are idempotent using `idempotency_key`.
 

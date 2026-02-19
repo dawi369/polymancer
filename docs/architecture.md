@@ -106,6 +106,7 @@ https://github.com/theSchein/pamela
 
 - Ported signal pipeline (NewsService, keyword extractor, confidence scoring)
 - Provides event-driven triggers and contextual signals
+- Port details: TBD (confirm exact modules and interfaces before implementation)
 
 ### Risk and Execution
 

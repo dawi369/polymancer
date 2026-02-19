@@ -8,6 +8,7 @@ This document defines the complete database schema for the MVP.
 - **Auth**: Supabase Auth (Apple, Google OAuth)
 - **RLS**: Row-level security enabled on all tables
 - **Time**: All timestamps stored in UTC; `users.timezone` is used for notification scheduling only
+- **Retention**: indefinite
 
 ## Table: users
 
@@ -344,6 +345,30 @@ Users table uses `deleted_at` for soft deletes. On account closure:
 
 ---
 
+## Table: daily_notes
+
+Per-bot notes captured during the day for summary generation.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | pk | |
+| bot_id | uuid | fk -> bots.id | |
+| date | date | | Local date for the note |
+| note_text | text | | Note content |
+| created_at | timestamptz | default now | |
+
+### Indexes
+- `daily_notes(id)` - primary key
+- `daily_notes(bot_id, date)` - for daily grouping
+
+### RLS
+- Users can read their own notes
+- Service role can read/write all
+
+Retention: delete after daily summary generation.
+
+---
+
 ## Table: daily_summaries
 
 Cached daily summary for notifications (denormalized).
@@ -366,6 +391,8 @@ Cached daily summary for notifications (denormalized).
 ### RLS
 - Users can read their own summaries
 - Service role can read/write all
+
+Retention: keep 1 year.
 
 ---
 
