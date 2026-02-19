@@ -176,6 +176,12 @@ polymancer/
 - `pmxt` is installed via `bun add pmxtjs@2.8.0` (locked to v2.8.0)
 - `polyseer` is a git submodule from your fork (not directly from upstream)
 
+**Supabase Client Pattern:**
+
+- `packages/database` exports `createServerClient()` — used by `apps/api` and `apps/worker` with the service role key (bypasses RLS).
+- `apps/mobile` creates its own client with the anon key + RLS (user can read/update their own rows). Uses React Native–specific storage (`AsyncStorage`, `processLock`), so it does not share the factory.
+- Env vars: backend uses `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`; mobile uses `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_KEY`.
+
 ## Related Documents
 
 - `docs/agent-spec.md` for agent behavior, data contracts, and scheduling

@@ -138,12 +138,14 @@ class PolyseerResearchTool {
 ### Idempotency and Dedupe
 
 **Run Enqueue Idempotency:**
+
 - Scheduled runs: `idempotency_key` derived from `(bot_id, scheduled_for)` bucket.
 - Reactive runs: key from `signal_events.id`.
 - User runs: key from user request id.
 - On conflict, skip enqueue and keep existing run.
 
 **Trade Execution Idempotency:**
+
 - Worker generates UUID right before execution
 - Stored in `trade_logs.idempotency_key` (unique constraint prevents duplicates)
 - Same key reused on retry → no duplicate trade
@@ -226,15 +228,18 @@ export type OrderInput = {
 ### Trade Execution Atomicity
 
 **Database-First Pattern:**
+
 1. Insert trade intent with `idempotency_key` (pending status)
 2. Execute pmxt paper trading API
 3. Update trade + positions in single transaction
 
 **Idempotency Key:** `trade:{run_id}:{sequence}`
+
 - Unique constraint on `trade_logs.idempotency_key`
 - If retry with same key → returns cached result
 
 **Crash Recovery (Reconciler):**
+
 - Runs every minute via cron
 - Finds trades `status='pending'` for >5 minutes
 - Queries pmxt API: "Did this trade execute?"
@@ -242,6 +247,7 @@ export type OrderInput = {
 - If no: Marks failed or retries
 
 **Atomic Updates:**
+
 ```sql
 BEGIN;
   UPDATE trade_logs SET status='executed', ... WHERE id=$1;
@@ -250,6 +256,7 @@ COMMIT;
 ```
 
 **Worker crash scenarios:**
+
 - Pre-DB: Nothing recorded, safe to retry
 - Post-DB intent: Reconciler recovers
 - Post-API call: Reconciler recovers state from pmxt
@@ -279,16 +286,17 @@ See `docs/post-mvp-spec.md` for future trading capabilities.
 
 Different contexts require different model qualities:
 
-| Context | Purpose | Default Model |
-|---------|---------|---------------|
-| messaging | Telegram chat | minimax/minimax-m2.5 |
-| research | Polyseer/news analysis | minimax/minimax-m2.5 |
-| trading | Trading decisions | minimax/minimax-m2.5 |
-| summarization | Daily summaries | minimax/minimax-m2.5 |
+| Context       | Purpose                | Default Model        |
+| ------------- | ---------------------- | -------------------- |
+| messaging     | Telegram chat          | minimax/minimax-m2.5 |
+| research      | Polyseer/news analysis | minimax/minimax-m2.5 |
+| trading       | Trading decisions      | minimax/minimax-m2.5 |
+| summarization | Daily summaries        | minimax/minimax-m2.5 |
 
 **Fallback:** deepseek/deepseek-v3.2 for all contexts
 
 **Selection Logic:**
+
 ```typescript
 async function getModelForContext(botId: string, context: string): Promise<string> {
   // 1. Check user override
@@ -297,22 +305,24 @@ async function getModelForContext(botId: string, context: string): Promise<strin
 
   // 2. Get user's tier
   const user = await db.users.find({ id: botId.user_id });
-  
+
   // 3. Get tier default
-  const default = await db.tierModelDefaults.find({ 
-    tier: user.tier, 
-    context 
+  const default = await db.tierModelDefaults.find({
+    tier: user.tier,
+    context
   });
-  
+
   return default.model_id;
 }
 ```
 
 **Fallback Chain:**
+
 - If primary model fails (rate limit, error), try `fallback_model_id`
 - If fallback fails, return error (no further fallback)
 
 **Tables:**
+
 - `tier_model_defaults` - Tier-level defaults (trial/paid)
 - `bot_model_configs` - User overrides (nullable = use tier default)
 
@@ -479,6 +489,7 @@ Every trading decision (including HOLD and REJECTED).
 - updated_at
 
 **Position Updates:**
+
 - Use atomic SQL updates with row-level locking
 - When `total_shares` reaches 0, set `closed_at` instead of deleting
 - Soft-closed positions retained for P&L history
@@ -590,6 +601,14 @@ Indexes:
 - RLS: users read their own rows; backend service role writes trade logs and positions.
 - No client access to service role or trading internals.
 
+**Access pattern by app:**
+
+| App    | Key          | RLS      | Can Do                                                                   |
+| ------ | ------------ | -------- | ------------------------------------------------------------------------ |
+| mobile | anon key     | enforced | Read/update own user, bot config (limits, strategy), view runs/positions |
+| api    | service role | bypassed | Write trade logs, manage webhooks, admin operations                      |
+| worker | service role | bypassed | Claim runs, write positions, record decisions                            |
+
 ## Telegram Integration
 
 ### Webhook Architecture
@@ -605,12 +624,14 @@ Telegram Servers ──HTTPS webhook──► API (Elysia) ──enqueue──�
 ```
 
 **Why this pattern:**
+
 - Survives brief outages (queue buffers messages)
 - Handles traffic spikes gracefully
 - Prevents missed messages during deployments
 - Scales beyond MVP
 
 **Webhook Endpoint:** `POST /webhooks/telegram`
+
 1. Validate `X-Telegram-Bot-Api-Secret-Token` header
 2. Immediately return 200 OK (within 60s)
 3. Enqueue message for async processing
@@ -626,6 +647,7 @@ Telegram Servers ──HTTPS webhook──► API (Elysia) ──enqueue──�
 6. App polls `GET /telegram/link-status?token=TOKEN` for completion
 
 **Implementation Details:**
+
 - Token: `crypto.randomBytes(32)` hashed with SHA-256, stored as hash only
 - Rate limit: 5 tokens per user per hour
 - Contact verification: Check `contact.user_id === message.from.id` (prevents spoofing)
@@ -643,12 +665,14 @@ Telegram Servers ──HTTPS webhook──► API (Elysia) ──enqueue──�
 Emergency stop for all trading activity.
 
 **Implementation:**
+
 - Stored in `global_settings` table with `kill_switch_enabled` boolean
 - Worker polls this flag at start of each run
 - When enabled: all runs immediately fail with "kill switch active"
 - Only accessible via protected admin endpoint
 
 **Endpoint:** `POST /admin/kill-switch`
+
 - Requires bearer token auth (admin only)
 - Body: `{ "enabled": true/false }`
 - Persists state until explicitly disabled
@@ -673,12 +697,14 @@ Emergency stop for all trading activity.
 **Important:** RevenueCat does NOT provide signature verification (no HMAC like Stripe).
 
 **Required security measures:**
+
 1. **Validate Authorization header**: Bearer token matches `REVENUECAT_WEBHOOK_SECRET`
 2. **Idempotency**: Store `event.id` in `processed_webhooks` table, reject duplicates
 3. **Schema validation**: Use TypeBox to validate payload structure
 4. **User verification**: Always check `event.app_user_id` exists before processing
 
 **Table:**
+
 ```sql
 CREATE TABLE processed_webhooks (
   event_id VARCHAR(255) PRIMARY KEY,
@@ -687,6 +713,7 @@ CREATE TABLE processed_webhooks (
 ```
 
 **Endpoint:** `POST /webhooks/revenuecat`
+
 - Return 200 OK immediately
 - Process asynchronously if needed
 
