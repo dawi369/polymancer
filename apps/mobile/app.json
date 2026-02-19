@@ -34,8 +34,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
-          "image": "./assets/android-foreground.png",
+          "backgroundColor": "#2C2A29",
+          "image": "./assets/icon_polymancer_transparent.png",
           "imageWidth": 250
         }
       ]
