@@ -2,6 +2,19 @@
 
 This document defines technical implementation details for the MVP. Product scope, UX, and feature goals live in `docs/design-spec.md` to avoid duplication.
 
+## Mobile Tech Stack
+
+| Layer         | Technology            | Version         |
+| ------------- | --------------------- | --------------- |
+| Framework     | Expo SDK              | ~55.0.0         |
+| Navigation    | Expo Router           | file-based      |
+| Styling       | Uniwind               | ^1.3.0          |
+| UI Components | gluestack-ui          | ^4.1.0-alpha    |
+| State         | React hooks + Zustand | —               |
+| Backend       | Supabase              | Auth + Postgres |
+| Push          | Expo Notifications    | —               |
+| Build         | EAS                   | —               |
+
 ## System Components
 
 - Mobile app: Expo control hub (no chat, no trading logic).
