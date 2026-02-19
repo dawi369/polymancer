@@ -4,6 +4,7 @@
     "noEmit": true,
     "allowJs": true,
     "skipLibCheck": true,
+    "module": "esnext",
     "moduleResolution": "bundler"
   },
   "include": [],
