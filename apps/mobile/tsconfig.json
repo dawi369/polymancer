@@ -3,7 +3,6 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
-    "jsxImportSource": "nativewind",
     "paths": {
       "@/*": [
         "./src/*",
@@ -14,9 +13,6 @@
       ],
       "@polymancer/*": [
         "../../packages/*/src"
-      ],
-      "tailwind.config": [
-        "./tailwind.config.js"
       ]
     }
   },
