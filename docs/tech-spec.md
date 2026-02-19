@@ -129,7 +129,7 @@ class PolyseerResearchTool {
    - Query Pamela news service for signals
    - Optionally invoke Polyseer for deep research (if uncertain/high-value)
 7. LLM synthesizes: user advice + research + market data + news
-8. Generate decision intent (BUY/SELL/HOLD with reasoning)
+8. Generate decision intent (BUY/SELL/HOLD with reasoning + trade statement)
 9. Run risk checks (position size, daily loss, slippage)
 10. Simulate FOK execution via pmxt paper adapter
 11. Record decision, update positions, emit notifications
@@ -578,15 +578,16 @@ Telegram chat history with rolling retention.
 
 Retention: keep 90 days, purge older rows via scheduled job.
 
-### daily_notes
+### trade_notes
 
-Per-bot notes captured during the day for summary generation.
+Per-trade notes that explain rationale and watchouts (predictable format).
 
 - id (uuid, pk)
+- trade_log_id (uuid, fk)
 - bot_id (uuid, fk)
-- date (date) - Local date for the note
 - note_text (text)
 - created_at (timestamptz)
+- deleted_at (timestamptz, nullable)
 
 ### daily_summaries
 
@@ -603,7 +604,7 @@ Cached daily summary for notifications (denormalized).
 
 Retention:
 
-- daily_notes are deleted after summary generation
+- trade_notes are soft deleted when the related position is closed
 - telegram chat is retained for 90 days
 - all other data retained indefinitely unless noted otherwise
 
@@ -710,8 +711,8 @@ Emergency stop for all trading activity.
 
 ## Notifications
 
-- Daily notes are captured during runs and stored in `daily_notes`.
-- At 8am local time, generate `daily_summaries` and delete prior-day notes.
+- Trade notes are captured per trade and stored in `trade_notes`.
+- At 8am local time, generate `daily_summaries` from the last 24h of trade notes.
 - At 9am local time, send the summary via Expo Push.
 - Scheduler runs in UTC and computes local time per `users.timezone` (timestamps stored in UTC).
 - Alerts: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).

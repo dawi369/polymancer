@@ -174,6 +174,14 @@ Every trading decision (including HOLD and REJECTED).
 | idempotency_key | uuid | unique | For trade deduplication |
 | created_at | timestamptz | default now | |
 
+### Trade Statement (WIP)
+
+Each trade should include a short statement (stored in `trade_notes`) with:
+- why
+- timeframe
+- influencers
+- watchouts
+
 ### Indexes
 - `trade_logs(id)` - primary key
 - `trade_logs(bot_id, created_at desc)` - for history queries
@@ -345,27 +353,29 @@ Users table uses `deleted_at` for soft deletes. On account closure:
 
 ---
 
-## Table: daily_notes
+## Table: trade_notes
 
-Per-bot notes captured during the day for summary generation.
+Per-trade notes that explain rationale and watchouts (predictable format).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | uuid | pk | |
+| trade_log_id | uuid | fk -> trade_logs.id | |
 | bot_id | uuid | fk -> bots.id | |
-| date | date | | Local date for the note |
 | note_text | text | | Note content |
 | created_at | timestamptz | default now | |
+| deleted_at | timestamptz | nullable | Soft delete when position closes |
 
 ### Indexes
-- `daily_notes(id)` - primary key
-- `daily_notes(bot_id, date)` - for daily grouping
+- `trade_notes(id)` - primary key
+- `trade_notes(bot_id, created_at desc)` - for daily summaries
+- `trade_notes(trade_log_id)` - for linking to trades
 
 ### RLS
 - Users can read their own notes
 - Service role can read/write all
 
-Retention: delete after daily summary generation.
+Retention: soft delete when related position closes.
 
 ---
 

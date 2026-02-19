@@ -103,8 +103,8 @@ Additional policies:
 
 ## Notifications
 
-- Daily notes captured during the day.
-- 8am local time: generate summary and clear prior-day notes.
+- Trade notes captured per trade.
+- 8am local time: generate summary from the last 24h of trade notes.
 - 9am local time: send summary (computed in UTC using `users.timezone`).
 - Alert on: bot paused, daily loss hit, repeated errors, market resolution, large position change (>25% of paper balance).
 

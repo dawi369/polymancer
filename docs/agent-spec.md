@@ -39,6 +39,7 @@ For system-level components and boundaries, see `docs/architecture.md`.
 - Decision intent (BUY/SELL/HOLD) with sizing and reasoning
 - Structured explanation for chat responses
 - Execution logs and risk evaluation results
+- Trade statement (predefined fields, WIP)
 
 ## Decision Agent
 
@@ -127,9 +128,17 @@ FOK simulation using pmxt order book depth.
   "confidence": 0.0,
   "reasoning": "...",
   "sources": ["polyseer", "news", "market"],
-  "run_type": "scheduled" | "reactive" | "user"
+  "run_type": "scheduled" | "reactive" | "user",
+  "trade_statement": {
+    "why": "...",
+    "timeframe": "...",
+    "influencers": ["..."],
+    "watchouts": ["..."]
+  }
 }
 ```
+
+Note: trade statement fields are WIP and will evolve over time.
 
 Note: LLM outputs use uppercase enums; the worker normalizes to lowercase for persistence.
 
