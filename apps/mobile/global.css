@@ -2,8 +2,6 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 
-@import "nativewind/theme";
-
 @layer base {
   :root {
     --color-cream: 249 246 240;
