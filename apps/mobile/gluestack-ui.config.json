@@ -1,0 +1,9 @@
+{
+  "app": {
+    "entry": "src/app/_layout.tsx",
+    "components": "src/components/ui"
+  },
+  "tailwind": {
+    "css": "global.css"
+  }
+}
