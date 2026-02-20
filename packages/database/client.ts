@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  */
 export function createServerClient(
   url: string,
-  serviceRoleKey: string,
+  serviceRoleKey: string
 ): SupabaseClient {
   return createClient(url, serviceRoleKey, {
     auth: {
