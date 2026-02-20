@@ -13,8 +13,8 @@
   "dependencies": {
     "@expo/html-elements": "^0.12.5",
     "@expo/vector-icons": "^15.0.3",
-    "@gluestack-ui/actionsheet": "^0.2.53",
-    "@gluestack-ui/button": "^1.0.14",
+    "@gluestack-ui/actionsheet": "^0.2.21-alpha.0",
+    "@gluestack-ui/button": "^1.0.8-alpha.15",
     "@gluestack-ui/core": "^4.1.0-alpha.0",
     "@gluestack-ui/utils": "^4.1.0-alpha.0",
     "@legendapp/motion": "^2.5.3",
