@@ -166,7 +166,16 @@ const ButtonSpinner = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof UIButton.Spinner>
 >(({ className, size, ...props }, ref) => {
   const { size: parentSize } = useStyleContext(SCOPE);
-  return <UIButton.Spinner ref={ref} {...props} className={buttonSpinnerStyle({ parentVariants: { size: parentSize }, class: className, size })} />;
+  return (
+    <UIButton.Spinner
+      ref={ref}
+      {...props}
+      className={buttonSpinnerStyle({
+        parentVariants: { size: parentSize },
+        class: className,
+      })}
+    />
+  );
 });
 type IButtonIcon = React.ComponentPropsWithoutRef<typeof UIButton.Icon> &
   VariantProps<typeof buttonIconStyle> & {

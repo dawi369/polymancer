@@ -35,12 +35,14 @@ export function useBot(userId: string | undefined) {
 
       if (botError) throw botError;
 
-      if (bot) {
+      const botData = bot as Bot | null;
+
+      if (botData) {
         // Fetch positions
         const { data: positions, error: positionsError } = await supabase
           .from("positions")
           .select("*")
-          .eq("bot_id", bot.id)
+          .eq("bot_id", botData.id)
           .is("closed_at", null);
 
         if (positionsError) throw positionsError;
@@ -49,14 +51,14 @@ export function useBot(userId: string | undefined) {
         const { data: paperSession, error: sessionError } = await supabase
           .from("paper_sessions")
           .select("*")
-          .eq("bot_id", bot.id)
+          .eq("bot_id", botData.id)
           .is("ended_at", null)
           .single();
 
         if (sessionError && sessionError.code !== "PGRST116") throw sessionError;
 
         setState({
-          bot: bot as Bot,
+          bot: botData,
           positions: (positions || []) as Position[],
           paperSession: paperSession as PaperSession | null,
           isLoading: false,

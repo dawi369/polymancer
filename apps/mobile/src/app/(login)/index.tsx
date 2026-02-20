@@ -10,18 +10,30 @@ import {
   ActionsheetDragIndicatorWrapper,
 } from "@/src/components/ui/actionsheet";
 import { Button, ButtonText } from "@/src/components/ui/button";
+import { useAuth } from "@/src/hooks/useAuth";
 
 export default function LoginScreen() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const { signInWithApple, signInWithGoogle } = useAuth();
 
   const handleOpen = () => setIsOpen(true);
   const handleClose = () => setIsOpen(false);
 
-  const handleLogin = () => {
-    // TODO: Implement actual auth
-    handleClose();
-    router.push("/(onboarding)/1");
+  const handleAppleLogin = async (): Promise<void> => {
+    const { error } = await signInWithApple();
+    if (!error) {
+      handleClose();
+      router.push("/(onboarding)/1");
+    }
+  };
+
+  const handleGoogleLogin = async (): Promise<void> => {
+    const { error } = await signInWithGoogle();
+    if (!error) {
+      handleClose();
+      router.push("/(onboarding)/1");
+    }
   };
 
   return (
@@ -51,11 +63,11 @@ export default function LoginScreen() {
           </ActionsheetDragIndicatorWrapper>
 
           <View className="px-4 py-6 gap-3">
-            <Button onPress={handleLogin}>
+            <Button onPress={handleAppleLogin}>
               <ButtonText>Continue with Apple</ButtonText>
             </Button>
 
-            <Button variant="outline" onPress={handleLogin}>
+            <Button variant="outline" onPress={handleGoogleLogin}>
               <ButtonText>Continue with Google</ButtonText>
             </Button>
           </View>

@@ -27,6 +27,7 @@ export type Database = {
         };
         Insert: Omit<Tables["users"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Tables["users"]["Insert"]>;
+        Relationships: [];
       };
       bots: {
         Row: {
@@ -52,6 +53,7 @@ export type Database = {
         };
         Insert: Omit<Tables["bots"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Tables["bots"]["Insert"]>;
+        Relationships: [];
       };
       positions: {
         Row: {
@@ -66,6 +68,7 @@ export type Database = {
         };
         Insert: Omit<Tables["positions"]["Row"], "updated_at">;
         Update: Partial<Tables["positions"]["Insert"]>;
+        Relationships: [];
       };
       paper_sessions: {
         Row: {
@@ -80,6 +83,7 @@ export type Database = {
         };
         Insert: Tables["paper_sessions"]["Row"];
         Update: Partial<Tables["paper_sessions"]["Insert"]>;
+        Relationships: [];
       };
       telegram_links: {
         Row: {
@@ -95,6 +99,7 @@ export type Database = {
         };
         Insert: Tables["telegram_links"]["Row"];
         Update: Partial<Tables["telegram_links"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
