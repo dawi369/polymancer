@@ -26,7 +26,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/icon_polymancer_no_alpha.png"
+      "favicon": "./assets/icon_polymancer_transparent.png"
     },
     "plugins": [
       "expo-router",

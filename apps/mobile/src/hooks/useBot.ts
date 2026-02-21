@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/src/utils/supabase";
-import type { Bot, Position, PaperSession } from "@polymancer/database";
+import type { Bot, PaperSession, Position } from "@polymancer/database";
+import { useCallback, useEffect, useState } from "react";
 
 interface BotState {
   bot: Bot | null;
@@ -33,7 +33,7 @@ export function useBot(userId: string | undefined) {
         .eq("user_id", userId)
         .single();
 
-      if (botError) throw botError;
+      if (botError && botError.code !== "PGRST116") throw botError;
 
       const botData = bot as Bot | null;
 
@@ -55,7 +55,8 @@ export function useBot(userId: string | undefined) {
           .is("ended_at", null)
           .single();
 
-        if (sessionError && sessionError.code !== "PGRST116") throw sessionError;
+        if (sessionError && sessionError.code !== "PGRST116")
+          throw sessionError;
 
         setState({
           bot: botData,
@@ -99,13 +100,13 @@ export function useBot(userId: string | undefined) {
 
       if (!error) {
         setState((prev) =>
-          prev.bot ? { ...prev, bot: { ...prev.bot, status } } : prev
+          prev.bot ? { ...prev, bot: { ...prev.bot, status } } : prev,
         );
       }
 
       return { error };
     },
-    [state.bot]
+    [state.bot],
   );
 
   return {

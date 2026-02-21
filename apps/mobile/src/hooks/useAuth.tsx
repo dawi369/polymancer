@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
-import * as AppleAuthentication from "expo-apple-authentication";
-import * as Crypto from "expo-crypto";
-import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
 import { supabase } from "@/src/utils/supabase";
 import type { User } from "@polymancer/database";
+import * as AppleAuthentication from "expo-apple-authentication";
+import { makeRedirectUri } from "expo-auth-session";
+import * as Google from "expo-auth-session/providers/google";
+import * as Crypto from "expo-crypto";
+import * as WebBrowser from "expo-web-browser";
+import { useCallback, useEffect, useState, createContext, useContext } from "react";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,10 +24,19 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  signInWithApple: () => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signOut: () => Promise<{ error: Error | null }>;
 }
 
-export function useAuth() {
-  const [state, setState] = useState<AuthState>({
+const AuthContext = createContext<AuthState | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<{
+    user: User | null;
+    isLoading: boolean;
+    isAuthenticated: boolean;
+  }>({
     user: null,
     isLoading: true,
     isAuthenticated: false,
@@ -42,23 +51,45 @@ export function useAuth() {
     redirectUri,
   });
 
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUser(session.user.id);
+  const fetchUser = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116" || error.code === "406") {
+        setState((s) => ({
+          ...s,
+          user: null,
+          isLoading: false,
+          isAuthenticated: true,
+        }));
       } else {
-        setState({
+        console.error("Error fetching user:", error);
+        setState((s) => ({
+          ...s,
           user: null,
           isLoading: false,
           isAuthenticated: false,
-        });
+        }));
       }
-    });
+    } else {
+      setState({
+        user: data as User,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+    }
+  };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+  useEffect(() => {
+    let isMounted = true;
+
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
         if (session?.user) {
           fetchUser(session.user.id);
         } else {
@@ -69,43 +100,32 @@ export function useAuth() {
           });
         }
       }
-    );
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        if (_event === 'SIGNED_OUT') {
+           setState({ user: null, isLoading: false, isAuthenticated: false });
+        } else if (session?.user) {
+          fetchUser(session.user.id);
+        } else {
+          setState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
+      }
+    });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
-
-  const fetchUser = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        setState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } else {
-        console.error("Error fetching user:", error);
-        setState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-      }
-    } else {
-      setState({
-        user: data as User,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-    }
-  };
 
   const signInWithApple = useCallback(async (): Promise<{ error: Error | null }> => {
     try {
@@ -173,20 +193,22 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
-    if (!error) {
-      setState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    }
     return { error };
   }, []);
 
-  return {
-    ...state,
-    signInWithApple,
-    signInWithGoogle,
-    signOut,
-  };
+  return (
+    <AuthContext.Provider
+      value={{ ...state, signInWithApple, signInWithGoogle, signOut }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
