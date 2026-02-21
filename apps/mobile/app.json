@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon_polymancer_transparent.png",
+        "foregroundImage": "./assets/icon_polymancer_80_transparent.png",
         "backgroundColor": "#2C2A29"
       },
       "predictiveBackGestureEnabled": false,
