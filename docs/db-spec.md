@@ -54,14 +54,13 @@ One bot per user. Contains configuration and scheduling.
 | id | uuid | pk | |
 | user_id | uuid | unique, fk -> users.id | |
 | status | text | default 'paused' | 'active', 'paused', 'error' |
-| model_id | text | | LLM model to use |
 | strategy_prompt | text | | Custom instructions for the bot |
 | max_daily_loss_usd | numeric | default 100 | |
 | max_position_size_usd | numeric | default 200 | |
 | max_trades_per_day | int | default 10 | |
 | slippage_threshold_percent | numeric | default 2 | |
 | daily_ai_cost_usd | numeric | default 0 | Running total today |
-| daily_ai_limit_usd | numeric | default 0.50 | |
+| daily_ai_limit_usd | numeric | default 0.50 | Daily AI budget cap |
 | daily_cost_reset_at | timestamptz | | Last time daily cost was reset |
 | next_run_at | timestamptz | | When bot is next due |
 | run_interval_hours | int | default 4 | How often to run |

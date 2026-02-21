@@ -107,6 +107,12 @@ class PolyseerResearchTool {
 - Polyseer calls are the expensive part
 - Skip Polyseer when confidence is already high/low
 
+### Timeouts
+
+- External API calls (LLM, pmxt, Polyseer): 60 second timeout
+- Redis operations: 10 second timeout
+- Database operations: 30 second timeout
+
 ## Runtime Model
 
 - One bot per user (MVP).
@@ -124,7 +130,8 @@ class PolyseerResearchTool {
 3. Load bot config including user strategy prompt
 4. Enforce kill switch, pause status, daily AI cost cap
 5. Dependency health gate: if any required service is down, mark run failed and stop
-6. Decision Agent analyzes market using tools:
+6. Pre-flight cost check: verify remaining daily AI budget before proceeding; if exceeded, skip agent execution and record HOLD with "daily budget exceeded"
+7. Decision Agent analyzes market using tools:
    - Query pmxt for market data (prices, order book)
    - Query Pamela news service for signals
    - Optionally invoke Polyseer for deep research (if uncertain/high-value)
