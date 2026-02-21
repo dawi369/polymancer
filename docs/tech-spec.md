@@ -123,6 +123,22 @@ class PolyseerResearchTool {
 - Runs are idempotent and safe to retry.
 - `runs` is the job queue; scheduled runs are enqueued from `bots.next_run_at`, reactive/user runs are enqueued as they occur.
 
+### Context Caching and Reuse
+
+Goal: avoid redoing work across runs while keeping context fresh.
+
+- **Market briefs cache** (global, shared across bots)
+  - TTL: 6 hours
+  - Invalidated early if new signal events reference the market
+- **Research cache (Polyseer)** (global, shared across bots)
+  - TTL: 24 hours
+  - Invalidated early if material new signals or large price move
+- **Context fingerprint**
+  - Hash of: selected market IDs + last signal timestamps + positions snapshot
+  - Stored on `runs` for audit and quick reuse checks
+- **Materiality gate**
+  - If `change_score` below threshold, record HOLD and skip LLM/Polyseer (see `docs/agent-spec.md`)
+
 ### Run Flow (Single Execution)
 
 1. Worker picks up due run from the `runs` queue (scheduled, reactive, or user)
@@ -142,11 +158,11 @@ class PolyseerResearchTool {
 11. Record decision, update positions, emit notifications
 12. Close decision window
 
-### Worker Loop (MVP)
+### Worker Loop
 
 - Tick every 30-60s.
 - Consume Redis queues for telegram messages, notifications, and background jobs.
-- Poll market data every 60s for a scoped set (open positions + last 50 markets from recent runs).
+- Poll market data every 60s for a scoped set (open positions + recent signal markets + last N markets + exploration slots).
 - Compute 15-minute deltas (price, liquidity, volume) and enqueue reactive runs on threshold hits.
 - Enqueue scheduled runs for bots where `next_run_at <= now` (dedupe via `idempotency_key`).
 - Requeue stale claims where `claimed_at` is older than 10 minutes.
@@ -296,8 +312,19 @@ See `docs/post-mvp-spec.md` for future trading capabilities.
 - MVP uses pmxt SDK for Polymarket (Kalshi in future).
 - pmxt provides unified API across prediction markets.
 - Full universe discovery via pmxt, then cap to 50 markets per run.
-- Market selection is model-driven within these caps; no deterministic market set for MVP.
-- No TTL caching in MVP.
+- Market selection uses a deterministic priority order (see Market Selection below).
+- No TTL caching for raw market data in MVP (briefs/research caches are separate).
+
+### Market Selection
+
+Deterministic selection to reduce churn and repeat work:
+
+1. Open positions (always include)
+2. Markets referenced by recent signal events (last 24h)
+3. Markets from the last N runs (rolling window)
+4. Exploration slots (fixed count, rotating daily)
+
+Fill to the 50-market cap in that order.
 
 ## LLM Integration
 
@@ -399,6 +426,13 @@ Malformed LLM response policy:
 
 - Retry twice.
 - If still invalid: pause bot and alert user.
+
+## Metrics
+
+- `skip_rate` (materiality gate)
+- `reuse_rate` (briefs + research cache hits)
+- `polyseer_hit_rate` (runs that used research)
+- `avg_run_cost_usd` (daily + per-run)
 
 ## Paper Trading Simulation (FOK)
 

@@ -81,7 +81,7 @@ Sources:
 
 Market polling (MVP):
 - Worker polls market data every 60s for a scoped set of markets
-- Scope: open positions + last 50 markets seen in recent runs
+- Scope: open positions + recent signal markets + last N markets + exploration slots (cap 50)
 - Compute 15-minute deltas for price, liquidity, volume
 - If thresholds are met, emit `signal_events` and enqueue a reactive run
 
@@ -252,17 +252,43 @@ Behavior rules:
 - Use Decision Agent for anything involving trades
 - Use Polyseer only when a decision requires deep evidence
 
-## Execution Lifecycle
+## Agent Loop
 
-1. Worker claims a run
-2. Decision window opens
-3. Decision Agent gathers context and signals
-4. Polyseer invoked if needed
-5. Decision intent produced
-6. Risk and policy engine validates
-7. Paper adapter simulates FOK trade
-8. Logs and positions updated
-9. Notifications sent
+Goal: maximize context while avoiding repeat work across runs.
+
+1. **Preflight Gate**
+   - Kill switch, bot status, daily AI cap, dependency health.
+2. **Context Snapshot (non-LLM)**
+   - Bot config + strategy prompt, positions, active paper session
+   - Market snapshots, signal events, last N runs (compact)
+   - Cached market briefs + cached research (if valid)
+   - Outputs: `context_fingerprint`, `context_summary`
+3. **Materiality Gate**
+   - Compute `change_score` (defaults below)
+   - Scheduled runs: if below threshold, record HOLD with `skip_reason="no_material_change"`
+   - Reactive/user runs bypass the gate
+4. **Research Planner**
+   - Only request Polyseer for high-value or high-uncertainty markets
+5. **Decision**
+   - LLM uses snapshot + briefs + research; emits intent + trade statement
+6. **Post-Run Memory Write**
+   - Persist summaries, briefs, research cache, and run metadata for reuse
+
+### Materiality Defaults
+
+- Normalize to 0-1 (cap at 1.0):
+  - `price_move_pct / 5`
+  - `liquidity_change_pct / 30`
+  - `volume_ratio / 2` (vs 24h avg)
+  - `news_signal_score / 0.70`
+  - `position_drift_pct_of_balance / 10`
+- `change_score = max(normalized components)`
+- Threshold: `0.6`
+
+## Context Reuse Rules
+
+- Market briefs and research cache are shared across bots; strategy prompts remain per-bot.
+- TTL and invalidation rules are defined in `docs/tech-spec.md`.
 
 ## Failure Handling
 

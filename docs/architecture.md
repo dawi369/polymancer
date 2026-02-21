@@ -71,6 +71,7 @@ Web UI is not part of the MVP. See `docs/post-mvp-spec.md`.
 - Scheduler tick enqueues due scheduled runs from `bots.next_run_at`
 - Runs a single Decision Agent with tool access
 - Produces decision intents, not direct trades
+- Uses DB-backed `runs` queue for agent runs; Redis is for Telegram/background jobs
 
 ### Polyseer Integration
 
@@ -129,6 +130,8 @@ https://github.com/theSchein/pamela
 - `telegram:messages` - Incoming Telegram messages
 - `notifications` - Expo push notifications
 - `background` - Reconciler, cleanup jobs
+
+**Note:** Agent runs are queued in Postgres (`runs` table). Redis queues handle chat and background jobs only.
 
 **Worker Architecture:**
 

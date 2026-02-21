@@ -100,6 +100,10 @@ Job queue for bot executions. Workers claim due jobs with `FOR UPDATE SKIP LOCKE
 | decision_window_ends_at | timestamptz | | When 5-min window closes |
 | input_params | jsonb | | Market IDs, research params, top news article refs (title/url) |
 | output_result | jsonb | | Final decision, positions, P&L, forecast card/audit |
+| context_fingerprint | text | | Hash of snapshot inputs used for reuse checks |
+| context_summary | text | | Compact summary used across runs |
+| change_score | numeric | | Materiality score for skip logic |
+| skip_reason | text | | Reason for fast-path skip (e.g., no_material_change) |
 | error_message | text | | Error if failed |
 | retry_count | int | default 0 | Number of retries |
 | idempotency_key | uuid | unique | For deduplication |
@@ -144,6 +148,51 @@ For news triggers, detailed article refs live in `runs.input_params`; signal eve
 ### RLS
 - Users can read their own signal events
 - Service role can read/write all
+
+---
+
+## Table: market_briefs
+
+Cached market summaries used across runs (shared across bots).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| market_id | text | unique | Market ID from pmxt |
+| summary_text | text | | Brief used in context |
+| source_hash | text | | Hash of inputs used to generate brief |
+| last_signal_at | timestamptz | | Last signal timestamp for this market |
+| updated_at | timestamptz | | Last update time |
+| valid_until | timestamptz | | TTL boundary |
+| metadata | jsonb | | Optional provenance |
+
+### Indexes
+- `market_briefs(market_id)` - unique
+
+### RLS
+- Service role can read/write all
+- Users cannot access
+
+---
+
+## Table: research_cache
+
+Polyseer output cache (shared across bots).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| market_id | text | unique | Market ID from pmxt |
+| forecast_card | jsonb | | Stored Polyseer ForecastCard |
+| evidence_hash | text | | Hash of evidence used |
+| updated_at | timestamptz | | Last update time |
+| valid_until | timestamptz | | TTL boundary |
+| metadata | jsonb | | Optional provenance |
+
+### Indexes
+- `research_cache(market_id)` - unique
+
+### RLS
+- Service role can read/write all
+- Users cannot access
 
 ---
 
