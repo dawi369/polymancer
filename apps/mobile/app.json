@@ -10,7 +10,6 @@
       "supportsTablet": true,
       "icon": "./assets/icon_polymancer_no_alpha.png",
       "bundleIdentifier": "ai.polymancer",
-      // might be able to get rid of this later
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -40,7 +39,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

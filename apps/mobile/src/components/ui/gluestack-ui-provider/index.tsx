@@ -7,7 +7,7 @@ import { Uniwind } from 'uniwind';
 export type ModeType = 'light' | 'dark' | 'system';
 
 export function GluestackUIProvider({
-  mode = 'dark',
+  mode = 'light',
   ...props
 }: {
   mode?: ModeType;
